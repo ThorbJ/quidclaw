@@ -140,11 +140,13 @@ def list_accounts(account_type, as_json):
 @click.option("--posting", multiple=True, required=True, help='Posting as JSON: \'{"account":"...", "amount":"...", "currency":"..."}\'')
 def add_txn(date, payee, narration, posting):
     """Record a transaction."""
+    import datetime as dt
     from quidclaw.core.transactions import TransactionManager
     ledger = get_ledger()
     mgr = TransactionManager(ledger)
     postings = [json.loads(p) for p in posting]
-    result = mgr.add_transaction(date, payee, narration, postings)
+    parsed_date = dt.date.fromisoformat(date)
+    result = mgr.add_transaction(parsed_date, payee, narration, postings)
     click.echo(result)
 
 
@@ -302,6 +304,23 @@ def detect_anomalies(as_json):
                     click.echo(f"  - {item}")
 
 
+@main.command("data-status")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+def data_status(as_json):
+    """Data freshness: inbox count, last ledger update."""
+    from quidclaw.core.inbox import InboxManager
+    config = get_config()
+    mgr = InboxManager(config)
+    status = mgr.get_data_status()
+    if as_json:
+        click.echo(json.dumps(status, indent=2, default=str))
+    else:
+        click.echo(f"Inbox files: {status.get('inbox_count', 0)}")
+        for f in status.get('inbox_files', []):
+            click.echo(f"  - {f}")
+        click.echo(f"Last modified: {status.get('last_modified', 'N/A')}")
+
+
 @main.command("fetch-prices")
 @click.argument("commodities", nargs=-1)
 def fetch_prices(commodities):
@@ -352,6 +371,7 @@ quidclaw spending-by-category YYYY MM # Category breakdown
 quidclaw month-comparison YYYY MM    # Month-over-month changes
 quidclaw largest-txns YYYY MM        # Top expenses
 quidclaw detect-anomalies            # Find duplicates, outliers, etc.
+quidclaw data-status                 # Inbox count, last ledger update
 ```
 
 Most commands support `--json` for structured output.
