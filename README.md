@@ -6,15 +6,15 @@ Zero-barrier personal CFO.
 
 QuidClaw turns any AI coding tool into a personal finance manager. It combines a CLI for Beancount accounting operations with AI workflow guides, so the AI knows exactly how to record transactions, import bank statements, detect anomalies, and generate reports. You talk to your AI in natural language — in any language — and it handles the bookkeeping. Works with Claude Code, Gemini CLI, OpenAI Codex, Cursor, or anything else that can read a markdown file and run shell commands.
 
-> "午饭花了45，微信付的"
+> "I had lunch for $15, paid with my debit card"
 >
-> The AI records a 45 CNY lunch expense from your WeChat account. No forms, no menus, no learning curve.
+> The AI records a $15 lunch expense from your bank account. No forms, no menus, no learning curve.
 
 ## Why QuidClaw
 
 - **Privacy first** — Everything runs locally. No cloud, no telemetry, no third-party access. Your financial data is plain text files on your machine.
 - **You own your data** — Beancount plain text format. Version control with git. No vendor lock-in. Export, migrate, or audit anytime.
-- **Zero barrier** — Talk to your AI the way you talk to a friend. Say "昨天打车花了30" or "I paid rent today, $2400" and it just works.
+- **Zero barrier** — Talk to your AI the way you talk to a friend. Say "I paid rent today, $2400" or "spent €30 on groceries" and it just works.
 - **Works with any AI** — Not locked to one tool. Claude Code today, Gemini CLI tomorrow. The workflows are portable markdown files.
 - **Real accounting engine** — Powered by Beancount V3 with double-entry bookkeeping, multi-currency support, and a query language (BQL).
 
@@ -43,7 +43,7 @@ The AI reads the generated `CLAUDE.md`, understands the project structure, and u
 ## Features
 
 - **Natural language input** — Speak any language. The AI translates your words into structured transactions.
-- **Multi-currency** — CNY, USD, EUR, JPY, or any currency. Mixed-currency accounts supported.
+- **Multi-currency** — USD, EUR, GBP, JPY, or any currency. Mixed-currency accounts supported.
 - **Bill import** — Drop bank statements or receipts into `inbox/`. The AI parses, deduplicates, and records them.
 - **Duplicate detection** — Catches double-charges, repeated subscriptions, and already-imported transactions.
 - **Document organization** — AI files documents from your inbox into a clean `documents/YYYY/MM/` archive.
@@ -56,7 +56,7 @@ The AI reads the generated `CLAUDE.md`, understands the project structure, and u
 ## Quick Start
 
 ```bash
-pip install quidclaw
+pip install quidclaw    # requires Python 3.10–3.13
 mkdir ~/my-finances && cd ~/my-finances
 quidclaw init
 claude    # or: gemini, codex, cursor — any AI coding tool
@@ -79,28 +79,28 @@ QuidClaw generates `CLAUDE.md` on `init`. Support for other instruction file for
 ## Usage Example
 
 ```
-You:   这个月花了多少钱？
+You:   How much did I spend this month?
 AI:    Let me check... [runs quidclaw monthly-summary 2026 03]
 
-       3月支出总计 ¥12,847.50
+       Total expenses for March: $4,285.50
 
-       餐饮      ¥3,240.00  (25.2%)
-       房租      ¥4,500.00  (35.0%)
-       交通      ¥1,080.00  (8.4%)
-       日用品    ¥890.50    (6.9%)
-       其他      ¥3,137.00  (24.4%)
+       Rent         $2,400.00  (56.0%)
+       Dining       $540.00    (12.6%)
+       Groceries    $380.00    (8.9%)
+       Transport    $275.50    (6.4%)
+       Other        $690.00    (16.1%)
 
-       比上月多花了 ¥1,200 (+10.3%)，主要增长在餐饮。
+       That's $320 more than last month (+8.1%), mainly from dining.
 
-You:   午饭花了45，微信付的
+You:   Lunch was $15, paid with my debit card
 AI:    Done. [runs quidclaw add-txn ...]
-       Recorded: 2026-03-20 午餐 ¥45.00 (WeChat → Expenses:Food:Dining)
+       Recorded: 2026-03-20 Lunch $15.00 (Assets:Bank:Checking → Expenses:Food:Dining)
 
-You:   Put the CMB statement in my inbox, help me import it
+You:   Put my bank statement in the inbox, help me import it
 AI:    [reads .quidclaw/workflows/import-bills.md]
        [scans inbox/, parses the CSV, deduplicates, records 47 transactions]
        Found 52 transactions in the statement. 5 were already recorded.
-       Imported 47 new transactions totaling ¥8,932.10.
+       Imported 47 new transactions totaling $3,892.10.
 ```
 
 ## Data Storage
@@ -197,7 +197,7 @@ my-finances/
 ## Development
 
 ```bash
-git clone https://github.com/thorb/quidclaw
+git clone https://github.com/ThorbJ/quidclaw
 cd quidclaw
 python -m venv .venv
 source .venv/bin/activate
@@ -210,7 +210,7 @@ pytest tests/test_integration.py  # end-to-end workflow
 
 ### Tech Stack
 
-- Python 3.10 - 3.13
+- Python 3.10 – 3.13 (3.14+ is not yet supported)
 - [Beancount V3](https://github.com/beancount/beancount) — accounting engine
 - [beanquery](https://github.com/beancount/beanquery) — BQL query execution
 - [Click](https://click.palletsprojects.com/) — CLI framework

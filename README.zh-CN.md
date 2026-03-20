@@ -166,7 +166,7 @@ my-finances/
 ## 开发
 
 ```bash
-git clone https://github.com/thorb/quidclaw.git
+git clone https://github.com/ThorbJ/quidclaw.git
 cd quidclaw
 python -m venv .venv
 source .venv/bin/activate

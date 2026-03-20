@@ -7,7 +7,7 @@ name = "quidclaw"
 version = "0.3.0"
 description = "Zero-barrier personal CFO — AI-powered, local-first, powered by Beancount"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.14"
 license = "GPL-2.0-only"
 authors = [
     { name = "Yue Jiang" },
@@ -27,9 +27,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/thorb/quidclaw"
-Repository = "https://github.com/thorb/quidclaw"
-Issues = "https://github.com/thorb/quidclaw/issues"
+Homepage = "https://github.com/ThorbJ/quidclaw"
+Repository = "https://github.com/ThorbJ/quidclaw"
+Issues = "https://github.com/ThorbJ/quidclaw/issues"
 
 [project.optional-dependencies]
 prices = ["beanprice>=0.1.0"]
