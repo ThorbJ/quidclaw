@@ -11,7 +11,7 @@ First, invoke the reconcile workflow mentally:
 ## Report Generation
 
 ### Income vs Spending
-Run `quidclaw report income_statement` via Bash for the target month.
+Run `quidclaw report income` via Bash for the target month.
 Present in plain language: "You made X and spent Y this month. That means you saved Z (or overspent by Z)."
 
 ### Spending Breakdown

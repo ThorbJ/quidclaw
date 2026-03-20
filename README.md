@@ -50,7 +50,7 @@ When you run `quidclaw init`, it creates a financial project directory with a `C
 | `quidclaw largest-txns YYYY MM` | Top N largest expense transactions (--limit) |
 | `quidclaw detect-anomalies` | Run all anomaly checks (--json) |
 | `quidclaw data-status` | Data freshness: inbox count, last ledger update (--json) |
-| `quidclaw fetch-prices [COMMODITIES...]` | Fetch and record asset prices |
+| `quidclaw fetch-prices [COMMODITIES...]` | Fetch and record asset prices *(not yet implemented)* |
 
 ## Directory Structure
 

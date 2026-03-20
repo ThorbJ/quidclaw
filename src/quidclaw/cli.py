@@ -324,12 +324,10 @@ def data_status(as_json):
 @main.command("fetch-prices")
 @click.argument("commodities", nargs=-1)
 def fetch_prices(commodities):
-    """Fetch and record asset prices."""
-    from quidclaw.core.prices import PriceManager
-    ledger = get_ledger()
-    mgr = PriceManager(ledger)
-    result = mgr.fetch_prices(list(commodities) if commodities else None)
-    click.echo(result)
+    """Fetch and record asset prices (not yet implemented)."""
+    click.echo("Error: fetch-prices is not yet implemented.", err=True)
+    click.echo("To manually record a price, use: quidclaw query or edit ledger/prices.bean directly.", err=True)
+    sys.exit(1)
 
 
 # --- Helpers ---
