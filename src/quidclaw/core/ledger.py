@@ -35,6 +35,21 @@ class Ledger:
         """Load and parse the entire ledger. Returns (entries, errors, options)."""
         return loader.load_file(str(self.config.main_bean))
 
+    def ensure_month_file(self, year: int, month: int) -> None:
+        """Ensure the year dir exists and the month file is included in main.bean."""
+        year_dir = self.config.year_dir(year)
+        year_dir.mkdir(parents=True, exist_ok=True)
+
+        month_file = self.config.month_bean(year, month)
+        if not month_file.exists():
+            month_file.write_text("")
+
+        main_content = self.config.main_bean.read_text()
+        relative = f"{year}/{year}-{month:02d}.bean"
+        include_line = f'include "{relative}"'
+        if include_line not in main_content:
+            self.append(self.config.main_bean, f'{include_line}\n')
+
     def append(self, filepath: Path, text: str) -> None:
         """Append text to a ledger file."""
         with open(filepath, "a") as f:

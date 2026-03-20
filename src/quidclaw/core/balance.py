@@ -8,7 +8,7 @@ class BalanceManager:
     def __init__(self, ledger: Ledger):
         self.ledger = ledger
 
-    def get_balance(self, account: str, date: datetime.date | None = None) -> dict[str, Decimal]:
+    def get_balance(self, account: str) -> dict[str, Decimal]:
         """Get balance for a single account. Returns {currency: amount}."""
         entries, _, options = self.ledger.load()
         real_root = realization.realize(entries)
@@ -34,10 +34,10 @@ class BalanceManager:
         return result
 
     def balance_check(
-        self, account: str, expected: Decimal, currency: str, date: datetime.date | None = None
+        self, account: str, expected: Decimal, currency: str
     ) -> tuple[bool, str]:
         """Check if account balance matches expected. Returns (ok, message)."""
-        actual = self.get_balance(account, date)
+        actual = self.get_balance(account)
         actual_amount = actual.get(currency, Decimal("0"))
         if actual_amount == expected:
             return True, f"{account}: {actual_amount} {currency}"
@@ -49,8 +49,6 @@ class BalanceManager:
     ) -> None:
         """Write a balance assertion directive."""
         line = f'{date} balance {account}  {amount} {currency}\n'
+        self.ledger.ensure_month_file(date.year, date.month)
         month_file = self.ledger.config.month_bean(date.year, date.month)
-        from quidclaw.core.transactions import TransactionManager
-        txn_mgr = TransactionManager(self.ledger)
-        txn_mgr._ensure_month_included(date.year, date.month)
         self.ledger.append(month_file, line)

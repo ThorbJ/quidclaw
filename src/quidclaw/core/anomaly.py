@@ -7,10 +7,13 @@ from quidclaw.core.ledger import Ledger
 class AnomalyDetector:
     def __init__(self, ledger: Ledger):
         self.ledger = ledger
+        self._entries = None
 
     def _get_expense_transactions(self):
         """Load all expense transactions as flat list."""
-        entries, _, _ = self.ledger.load()
+        if self._entries is None:
+            self._entries, _, _ = self.ledger.load()
+        entries = self._entries
         txns = []
         for entry in entries:
             if not isinstance(entry, data.Transaction):

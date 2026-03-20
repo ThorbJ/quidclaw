@@ -40,18 +40,19 @@ def main():
 
 
 @main.command()
-@click.option("--template", is_flag=True, default=True, help="Use default account template")
-def init(template):
+@click.option("--no-template", is_flag=True, default=False, help="Skip default account template")
+def init(no_template):
     """Initialize a new financial project in the current directory."""
     config = get_config()
     ledger = Ledger(config)
     ledger.init()
 
-    if template:
+    if not no_template:
         from quidclaw.core.init import LedgerInitializer
         initializer = LedgerInitializer(ledger)
-        result = initializer.init_with_template()
-        click.echo(result)
+        created = initializer.init_with_template()
+        if created:
+            click.echo(f"Created {len(created)} default accounts")
 
     # Copy workflow files
     workflows_dir = Path(__file__).parent / "workflows"
@@ -101,8 +102,8 @@ def add_account(name, currencies, open_date):
     ledger = get_ledger()
     mgr = AccountManager(ledger)
     currency_list = [c.strip() for c in currencies.split(",")]
-    result = mgr.add_account(name, currency_list, open_date)
-    click.echo(result)
+    mgr.add_account(name, currency_list, open_date)
+    click.echo(f"Opened account {name}")
 
 
 @main.command("close-account")
@@ -113,8 +114,8 @@ def close_account(name, close_date):
     from quidclaw.core.accounts import AccountManager
     ledger = get_ledger()
     mgr = AccountManager(ledger)
-    result = mgr.close_account(name, close_date)
-    click.echo(result)
+    mgr.close_account(name, close_date)
+    click.echo(f"Closed account {name}")
 
 
 @main.command("list-accounts")
@@ -146,8 +147,8 @@ def add_txn(date, payee, narration, posting):
     mgr = TransactionManager(ledger)
     postings = [json.loads(p) for p in posting]
     parsed_date = dt.date.fromisoformat(date)
-    result = mgr.add_transaction(parsed_date, payee, narration, postings)
-    click.echo(result)
+    mgr.add_transaction(parsed_date, payee, narration, postings)
+    click.echo(f"Recorded transaction: {date} {payee}")
 
 
 @main.command()
@@ -176,13 +177,13 @@ def balance(account, as_json):
 @click.argument("account")
 @click.argument("expected")
 @click.option("--currency", default="CNY")
-@click.option("--date", default=None)
-def balance_check(account, expected, currency, date):
+def balance_check(account, expected, currency):
     """Reconciliation: assert an account balance."""
+    from decimal import Decimal
     from quidclaw.core.balance import BalanceManager
     ledger = get_ledger()
     mgr = BalanceManager(ledger)
-    ok, message = mgr.balance_check(account, expected, currency, date)
+    ok, message = mgr.balance_check(account, Decimal(expected), currency)
     click.echo(message)
     if not ok:
         sys.exit(1)
@@ -252,32 +253,44 @@ def spending_by_category(year, month, as_json):
     if as_json:
         click.echo(json.dumps(result, indent=2, default=str))
     else:
-        click.echo(result)
+        for item in result:
+            click.echo(f"{item['category']}: {item['amount']} {item['currency']}")
 
 
 @main.command("month-comparison")
 @click.argument("year", type=int)
 @click.argument("month", type=int)
-def month_comparison(year, month):
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+def month_comparison(year, month, as_json):
     """Month-over-month comparison with percentages."""
     from quidclaw.core.reports import ReportManager
     ledger = get_ledger()
     mgr = ReportManager(ledger)
     result = mgr.month_over_month(year, month)
-    click.echo(result)
+    if as_json:
+        click.echo(json.dumps(result, indent=2, default=str))
+    else:
+        for item in result:
+            sign = "+" if item["change_pct"] > 0 else ""
+            click.echo(f"{item['category']}: {item['current']} {item['currency']} (prev: {item['previous']}, {sign}{item['change_pct']}%)")
 
 
 @main.command("largest-txns")
 @click.argument("year", type=int)
 @click.argument("month", type=int)
 @click.option("--limit", default=10, help="Number of transactions")
-def largest_txns(year, month, limit):
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+def largest_txns(year, month, limit, as_json):
     """Top N largest expense transactions."""
     from quidclaw.core.reports import ReportManager
     ledger = get_ledger()
     mgr = ReportManager(ledger)
     result = mgr.largest_transactions(year, month, limit)
-    click.echo(result)
+    if as_json:
+        click.echo(json.dumps(result, indent=2, default=str))
+    else:
+        for item in result:
+            click.echo(f"{item['date']} {item['payee']}: {item['amount']} {item['currency']} ({item['account']})")
 
 
 @main.command("detect-anomalies")
@@ -335,8 +348,19 @@ def fetch_prices(commodities):
 
 def _generate_claude_md(config: QuidClawConfig):
     """Generate CLAUDE.md for the financial project."""
+    # Read operating currency from ledger if available
+    currency = "CNY"
+    if config.main_bean.exists():
+        try:
+            content = config.main_bean.read_text()
+            for line in content.split("\n"):
+                if "operating_currency" in line and '"' in line:
+                    currency = line.split('"')[-2]
+        except Exception:
+            pass
+
     claude_md_path = Path(config.data_dir) / "CLAUDE.md"
-    claude_md_path.write_text("""\
+    claude_md_path.write_text(f"""\
 # QuidClaw — Personal CFO
 
 You are a personal CFO managing finances in this directory.
@@ -367,7 +391,7 @@ quidclaw upgrade                     # Update workflows to latest version
 quidclaw add-account NAME            # Open account
 quidclaw close-account NAME          # Close account
 quidclaw list-accounts [--type X]    # List accounts
-quidclaw add-txn --date D --payee P --posting '{...}'  # Record transaction
+quidclaw add-txn --date D --payee P --posting '{{...}}'  # Record transaction
 quidclaw balance [--account X]       # Query balances
 quidclaw balance-check ACCT AMT      # Reconciliation assertion
 quidclaw query "SELECT ..."          # Execute BQL query
@@ -411,8 +435,8 @@ Read `.quidclaw/workflows/<name>.md` for detailed workflow instructions:
 
 - Only verified data (bank statements, receipts) goes into the ledger
 - Transactions go into monthly files: `ledger/YYYY/YYYY-MM.bean`
-- Document naming: `{Source}-{Type}-{YYYY-MM}.{ext}`
+- Document naming: `{{Source}}-{{Type}}-{{YYYY-MM}}.{{ext}}`
 - Account naming: use last 4 digits or identifiers (e.g., Assets:Bank:CMB:1234)
-- Default currency: CNY (unless user specifies otherwise)
+- Default currency: {currency} (unless user specifies otherwise)
 - Always reconcile before generating reports or answering financial questions
 """)

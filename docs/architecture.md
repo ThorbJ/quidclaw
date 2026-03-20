@@ -58,7 +58,7 @@ Pure Python business logic. Each module has a single responsibility:
 
 | Module | Class | Responsibility |
 |--------|-------|----------------|
-| `ledger.py` | `Ledger` | Init, load, append to .bean files |
+| `ledger.py` | `Ledger` | Init, load, append, ensure monthly files exist |
 | `accounts.py` | `AccountManager` | Open/close/list accounts |
 | `transactions.py` | `TransactionManager` | Add transactions to monthly files |
 | `balance.py` | `BalanceManager` | Balance queries and assertions |

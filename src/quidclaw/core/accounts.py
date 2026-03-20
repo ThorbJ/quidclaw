@@ -1,11 +1,28 @@
+import re
 import datetime
 from beancount.core import data
 from quidclaw.core.ledger import Ledger
+
+VALID_PREFIXES = ("Assets", "Liabilities", "Income", "Expenses", "Equity")
+ACCOUNT_RE = re.compile(r"^[A-Z][a-zA-Z0-9-]+(:[A-Za-z0-9][a-zA-Z0-9-]*)+$")
 
 
 class AccountManager:
     def __init__(self, ledger: Ledger):
         self.ledger = ledger
+
+    @staticmethod
+    def validate_account_name(name: str) -> None:
+        """Validate that name follows Beancount account format."""
+        if not ACCOUNT_RE.match(name):
+            raise ValueError(
+                f"Invalid account name '{name}'. Must be colon-separated, "
+                f"each segment capitalized (e.g., Assets:Bank:Checking)"
+            )
+        if not name.startswith(VALID_PREFIXES):
+            raise ValueError(
+                f"Account '{name}' must start with one of: {', '.join(VALID_PREFIXES)}"
+            )
 
     def add_account(
         self,
@@ -14,6 +31,7 @@ class AccountManager:
         open_date: datetime.date | None = None,
     ) -> None:
         """Add an Open directive to accounts.bean."""
+        self.validate_account_name(name)
         date = open_date or datetime.date.today()
         currency_str = ",".join(currencies) if currencies else ""
         line = f'{date} open {name}'
@@ -28,6 +46,7 @@ class AccountManager:
         close_date: datetime.date | None = None,
     ) -> None:
         """Add a Close directive to accounts.bean."""
+        self.validate_account_name(name)
         date = close_date or datetime.date.today()
         line = f"{date} close {name}\n"
         self.ledger.append(self.ledger.config.accounts_bean, line)

@@ -34,22 +34,6 @@ class TransactionManager:
         text = "".join(lines)
 
         # Write to monthly file
-        self._ensure_month_included(date.year, date.month)
+        self.ledger.ensure_month_file(date.year, date.month)
         month_file = self.ledger.config.month_bean(date.year, date.month)
         self.ledger.append(month_file, text)
-
-    def _ensure_month_included(self, year: int, month: int) -> None:
-        """Ensure the year dir exists and the month file is included in main.bean."""
-        year_dir = self.ledger.config.year_dir(year)
-        year_dir.mkdir(parents=True, exist_ok=True)
-
-        month_file = self.ledger.config.month_bean(year, month)
-        if not month_file.exists():
-            month_file.write_text("")
-
-        # Check if include already exists in main.bean
-        main_content = self.ledger.config.main_bean.read_text()
-        relative = f"{year}/{year}-{month:02d}.bean"
-        include_line = f'include "{relative}"'
-        if include_line not in main_content:
-            self.ledger.append(self.ledger.config.main_bean, f'{include_line}\n')
