@@ -40,6 +40,15 @@ dev = [
 [project.scripts]
 quidclaw = "quidclaw.cli:main"
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/quidclaw"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/quidclaw/**"]
+
+[tool.hatch.build]
+include = ["src/quidclaw/**/*.py", "src/quidclaw/workflows/*.md"]
+
 [tool.pytest.ini_options]
 markers = [
     "e2e: End-to-end tests that run AI CLI (slow, costs API)",
