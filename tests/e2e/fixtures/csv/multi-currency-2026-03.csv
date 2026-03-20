@@ -1,0 +1,4 @@
+Date,Merchant,Amount,Currency,Type
+2026-03-10,Amazon,29.99,USD,Purchase
+2026-03-12,Carrefour,85.50,CNY,Purchase
+2026-03-15,Emirates,1500.00,AED,Purchase
