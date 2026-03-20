@@ -1,15 +1,10 @@
----
-name: organize-documents
-description: Sort, rename, and archive files from inbox/ to documents/. Triggers when new files are in inbox, after import-bills processing, or when user asks to organize their files. Delegates to document-organizer agent for classification.
----
-
 # Document Organization Workflow
 
 You are organizing the user's financial documents from their messy inbox into a clean, structured archive.
 
 ## Step 1: Scan Inbox
 
-Use `ls inbox/` via Bash to see all unprocessed files.
+Run `ls inbox/` via Bash to see all unprocessed files.
 
 ## Step 2: Process Each File
 
@@ -33,13 +28,13 @@ Ask the user to confirm or adjust.
 
 ## Step 4: Move Files
 
-Use Bash to move each confirmed file: `mkdir -p documents/YYYY/MM && mv inbox/filename documents/YYYY/MM/new-name`
+Run via Bash for each confirmed file: `mkdir -p documents/YYYY/MM && mv inbox/filename documents/YYYY/MM/new-name`
 
 ## Step 5: Capture Key Information
 
 For documents that contain important non-transaction info (contracts, insurance policies):
 - Extract key details (dates, terms, amounts, parties)
-- Save with the Write tool under appropriate path:
+- Save to the appropriate notes path:
   - Contract -> `notes/assets/` or `notes/liabilities/`
   - Insurance -> `notes/insurance/`
   - Other -> `notes/` root

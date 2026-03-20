@@ -1,8 +1,3 @@
----
-name: monthly-review
-description: Generate a comprehensive monthly financial review with spending breakdown, trends, and plain-language insights. Triggers when user asks for a monthly report, summary, or review, at the beginning of a new month, or when asked "how did I do this month?"
----
-
 # Monthly Financial Review
 
 Generate a comprehensive, plain-language monthly financial report.
@@ -10,20 +5,17 @@ Generate a comprehensive, plain-language monthly financial report.
 ## Pre-Check
 
 First, invoke the reconcile workflow mentally:
-1. Call `get_data_status` — are there unprocessed files?
+1. Run `quidclaw data-status --json` via Bash — are there unprocessed files?
 2. If data is incomplete, help the user fill gaps before generating the report
 
 ## Report Generation
 
 ### Income vs Spending
-Use `report` with type `income_statement` for the target month.
+Run `quidclaw report income_statement` via Bash for the target month.
 Present in plain language: "You made X and spent Y this month. That means you saved Z (or overspent by Z)."
 
 ### Spending Breakdown
-Use `query` to break down expenses by top-level category:
-```
-SELECT root(account, 2) as category, sum(position) WHERE account ~ 'Expenses' AND year = YYYY AND month = MM GROUP BY category ORDER BY sum(position)
-```
+Run `quidclaw query "SELECT root(account, 2) as category, sum(position) WHERE account ~ 'Expenses' AND year = YYYY AND month = MM GROUP BY category ORDER BY sum(position)" --json` via Bash.
 
 Present as a ranked list: "Your biggest spending areas: 1. Food (X), 2. Housing (Y), ..."
 
@@ -41,7 +33,7 @@ Flag the 3-5 largest individual transactions.
 
 ## Save Report
 
-Save the full report to `reports/YYYY-MM-monthly-report.md` using file write tools.
+Save the full report to `reports/YYYY-MM-monthly-report.md`.
 
 ## Tone
 

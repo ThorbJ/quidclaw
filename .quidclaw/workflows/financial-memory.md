@@ -1,17 +1,12 @@
----
-name: financial-memory
-description: Capture important financial information from conversations that doesn't belong in the ledger — contract details, policy terms, rate changes, informal agreements, financial plans, and decision rationale. Triggers when user mentions financial facts, agreements, upcoming changes, or important details about their assets, insurance, loans, or subscriptions.
----
-
 # Financial Memory
 
 You are the user's financial brain. Capture and organize everything important that doesn't belong in a transaction ledger.
 
 ## Before Writing
 
-1. **Search first**: Use Grep to search the `notes/` directory and check if a related note already exists
-2. **Update, don't duplicate**: If a related note exists, use the Read tool to read it, then the Edit tool to insert new info under the right section
-3. **Create only when new**: Only use the Write tool to create a genuinely new note at the appropriate `notes/` path
+1. **Search first**: Search the `notes/` directory to check if a related note already exists
+2. **Update, don't duplicate**: If a related note exists, read it, then edit to insert new info under the right section
+3. **Create only when new**: Only create a genuinely new note at the appropriate `notes/` path
 
 ## Notes Directory Structure
 
@@ -69,13 +64,13 @@ These always reflect the LATEST state. When something changes, update the "Curre
 - `income/details.md` — current income sources
 
 **How to update living documents:**
-- Overwrite the "Current Status" or "Key Facts" section using the Write tool (rewrite the full file with updated content)
-- ALSO use the Read tool then Edit tool to append to the "History" section to record what changed
+- Overwrite the "Current Status" or "Key Facts" section (rewrite the full file with updated content)
+- ALSO append to the "History" section to record what changed
 
 Example:
 ```
-1. Use Write tool to rewrite notes/assets/房产-xxx小区.md with updated rental amount
-2. Use Read + Edit tools on notes/assets/房产-xxx小区.md to append under "## History": "- 2026-04-01: Rent increased from 5000 to 8000"
+1. Rewrite notes/assets/房产-xxx小区.md with updated rental amount
+2. Append under "## History": "- 2026-04-01: Rent increased from 5000 to 8000"
 ```
 
 ### Append-Only Logs (never overwrite, only grow)
@@ -87,7 +82,7 @@ These are historical records. They only get new entries, never lose old ones.
 - `journal/*.md` — notable conversation captures
 
 **How to update append-only logs:**
-- Always use Read + Edit tools to append, never overwrite with Write
+- Always read first and then append, never overwrite
 - Each entry starts with date: `- 2026-03-19: ...`
 
 ## Note Format
@@ -135,7 +130,7 @@ Use these section headers consistently:
 - "Chose BOC over ICBC because of 0.2% lower rate"
 
 ```
-Use Read + Edit tools on notes/decisions/2026.md to append under "## March":
+Append to notes/decisions/2026.md under "## March":
 "- 2026-03-19: Discussed refinancing. Decided to wait until 2029 rate review. Current rate (3.1%) still below investment returns (~5%)."
 ```
 
@@ -145,7 +140,7 @@ Use Read + Edit tools on notes/decisions/2026.md to append under "## March":
 - Upcoming changes: "rent increases to ¥8000 starting April"
 
 ```
-Use Read + Edit tools on notes/journal/2026.md to append under "## March":
+Append to notes/journal/2026.md under "## March":
 "- 2026-03-19: User mentioned rent is increasing to 8000 starting April. Updated assets/房产-xxx小区.md accordingly."
 ```
 

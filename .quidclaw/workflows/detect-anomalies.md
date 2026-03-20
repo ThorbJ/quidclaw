@@ -1,8 +1,3 @@
----
-name: detect-anomalies
-description: Analyze transactions for unusual patterns — duplicate charges, subscription price increases, unknown recurring charges, unusually large transactions. Triggers when user asks about unusual spending, suspicious charges, subscription review, or as part of monthly review.
----
-
 # Anomaly Detection
 
 Scan the user's transaction history for suspicious or unusual patterns.
@@ -10,13 +5,13 @@ Scan the user's transaction history for suspicious or unusual patterns.
 ## What to Look For
 
 ### 1. Duplicate Charges
-Use `query` to find transactions with the same amount and similar payee within a 3-day window.
+Run `quidclaw query "SELECT date, payee, position WHERE ..." --json` via Bash to find transactions with the same amount and similar payee within a 3-day window.
 Flag any matches: "I found two charges of 35.80 to Starbucks on March 3 and March 4. Could one be a duplicate?"
 
 ### 2. Recurring Subscriptions
-Use `query` to find payees that appear monthly with similar amounts:
-```
-SELECT payee, count(*) as times, sum(position) as total WHERE account ~ 'Expenses' GROUP BY payee HAVING count(*) >= 3 ORDER BY total
+Run via Bash:
+```bash
+quidclaw query "SELECT payee, count(*) as times, sum(position) as total WHERE account ~ 'Expenses' GROUP BY payee HAVING count(*) >= 3 ORDER BY total" --json
 ```
 Present as a subscription summary with monthly cost.
 

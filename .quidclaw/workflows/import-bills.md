@@ -1,8 +1,3 @@
----
-name: import-bills
-description: Parse and import financial documents into the ledger. Triggers when user uploads files (PDF, CSV, images, screenshots), mentions importing bank statements or bills, or when unprocessed files are detected in inbox/. Handles deduplication and file organization.
----
-
 # Bill Import Workflow
 
 You are importing financial documents into QuidClaw. The user may have uploaded files in chat or dropped them into their inbox/ folder.
@@ -16,7 +11,7 @@ For EACH file, you must complete ALL of these steps in order:
 
 ## Step 1: Identify What to Process
 
-- Use `ls inbox/` via Bash to find unprocessed files
+- Run `ls inbox/` via Bash to find unprocessed files
 - Check if the user has uploaded or pasted files in the current conversation
 - List what you found
 
@@ -24,7 +19,7 @@ For EACH file, you must complete ALL of these steps in order:
 
 ### Step 2: Parse the Document
 
-1. Read the file content (use `Read` tool for CSV/text, vision for images/PDFs)
+1. Read the file content (text/CSV files directly, vision for images/PDFs)
 2. Identify the document type (bank statement, credit card bill, receipt, etc.)
 3. Extract ALL transactions: date, amount, currency, payee, description
 4. Handle both Chinese and English format documents
@@ -33,7 +28,7 @@ For EACH file, you must complete ALL of these steps in order:
 ### Step 3: Deduplicate
 
 Before recording, check for duplicates:
-1. Use `query` with BQL to find existing transactions near the same dates
+1. Run `quidclaw query "SELECT date, payee, position WHERE ..." --json` via Bash to find existing transactions near the same dates
 2. Compare by: date (±2 days) + amount (exact match) + payee (similar)
 3. If a likely duplicate is found, flag it and ask the user
 4. NEVER silently skip a transaction — always confirm with the user
@@ -61,9 +56,10 @@ For each confirmed transaction:
    - Banks: `Assets:Bank:{BankName}:{Last4}` (ask user for last 4 if not known)
    - Credit cards: `Liabilities:CreditCard:{BankName}:{Last4}`
    - Payment apps: `Assets:{AppName}` or `Assets:{AppName}:{Identifier}`
-2. `add_transaction` with appropriate accounts and amounts
-3. Use descriptive narrations the user will understand later
-4. Match the currency from the document (do NOT default — use what the document says)
+2. Run `quidclaw add-account NAME --currencies CUR` via Bash for any new accounts
+3. Run `quidclaw add-txn --date D --payee P --narration N --posting '{"account":"...","amount":"...","currency":"..."}'` via Bash for each transaction
+4. Use descriptive narrations the user will understand later
+5. Match the currency from the document (do NOT default — use what the document says)
 
 ### Step 6: Archive This File — IMMEDIATELY
 
@@ -81,17 +77,17 @@ Examples:
 - `Amazon-Statement-2026-03.csv`
 - `NBD-BankStatement-2026-03.png`
 
-**Then verify**: Use `ls inbox/` to confirm the file is gone. If it's still there, try again.
+**Then verify**: Run `ls inbox/` to confirm the file is gone. If it's still there, try again.
 
 ### Step 7: Capture Extra Info (if applicable)
 
 If the document contains non-transaction information (account numbers, interest rates, credit limits, policy terms):
-- Use the Write tool to save it to the appropriate `notes/` path, or use Read + Edit tools to append to an existing note
+- Save it to the appropriate `notes/` path, or append to an existing note
 - Example: bank account details → `notes/accounts/招商银行-信用卡.md`
 
 ## After All Files Are Processed
 
-Use `ls inbox/` one final time. If the inbox is NOT empty, something was missed — process the remaining files.
+Run `ls inbox/` one final time. If the inbox is NOT empty, something was missed — process the remaining files.
 
 Report to the user:
 - How many files were processed

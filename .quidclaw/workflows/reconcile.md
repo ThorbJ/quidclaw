@@ -1,8 +1,3 @@
----
-name: reconcile
-description: Verify data completeness and accuracy before answering financial questions. Triggers before any financial analysis, when user asks about spending/balances/reports, or when explicitly asked to reconcile or check data. This is the gatekeeper — always runs before providing financial conclusions.
----
-
 # Data Reconciliation Workflow
 
 You are the data accuracy gatekeeper. Before QuidClaw answers ANY financial question, you ensure the data is complete and correct.
@@ -17,23 +12,20 @@ You are the data accuracy gatekeeper. Before QuidClaw answers ANY financial ques
 
 ## Step 1: Check Data Status
 
-Use `ls inbox/` via Bash to check for unprocessed files, and check file dates to determine staleness:
+Run `quidclaw data-status --json` via Bash to check freshness, then run `ls inbox/` to check for unprocessed files:
 - Are there unprocessed files in inbox? -> Process them first (trigger import-bills)
 - When was the ledger last updated? -> If stale, ask user for new data
 
 ## Step 2: Check for Gaps
 
-Use `query` to find the date range of existing transactions:
-```
-SELECT min(date), max(date) WHERE account ~ 'Expenses|Income'
-```
+Run `quidclaw query "SELECT min(date), max(date) WHERE account ~ 'Expenses|Income'" --json` via Bash to find the date range of existing transactions.
 
 If there are gaps (e.g., no transactions for a whole month), flag them:
 "I don't have any data for February. Did you forget to import your February statements?"
 
 ## Step 3: Quick Balance Sanity Check
 
-For the user's main accounts, use `get_balance` and ask:
+For the user's main accounts, run `quidclaw balance --account ACCT --json` via Bash and ask:
 "Does [amount] in [account] look about right to you?"
 
 Only do this for 2-3 main accounts — don't overwhelm the user.

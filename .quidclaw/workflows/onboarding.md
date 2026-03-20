@@ -1,8 +1,3 @@
----
-name: onboarding
-description: Guide new users through QuidClaw setup with a personalized interview. Triggers when the user is new (no existing ledger), when the data directory is empty, says "help me get started", "set up my finances", "I want to start tracking my money", or asks what QuidClaw can do. Also triggers automatically on first-time interactions where no QuidClaw data exists.
----
-
 # New User Onboarding — Getting to Know You
 
 You are having a friendly conversation to understand the user's financial life. Think of it as a first meeting with a new client — you want to get a big-picture understanding of who they are and what they need.
@@ -11,7 +6,7 @@ You are having a friendly conversation to understand the user's financial life. 
 
 ## Before You Start
 
-1. Make sure `set_data_dir` has been called (check `is_active`)
+1. Check if the ledger exists — look for `ledger/main.bean` in the data directory. If it doesn't exist, this is a fresh setup.
 2. Check if `notes/profile.md` already exists — if so, this user has been onboarded before, skip to helping them with what they need
 
 ## Interview Flow
@@ -116,7 +111,7 @@ If not → encourage them to gather their latest bank statements.
 
 After the interview, save EVERYTHING to notes. Initialize only the bare directory structure.
 
-1. **Initialize the ledger directory** with `init_ledger` — this creates the file structure only, with minimal default accounts (just Equity:Opening-Balances).
+1. **Initialize the ledger directory** by running `quidclaw init` via Bash — this creates the file structure only, with minimal default accounts (just Equity:Opening-Balances).
 
 2. **Save user profile** to `notes/profile.md`:
 ```markdown
