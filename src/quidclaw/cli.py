@@ -356,6 +356,7 @@ Use these via Bash when you need Beancount engine operations:
 
 ```
 quidclaw init                        # Initialize ledger
+quidclaw upgrade                     # Update workflows to latest version
 quidclaw add-account NAME            # Open account
 quidclaw close-account NAME          # Close account
 quidclaw list-accounts [--type X]    # List accounts

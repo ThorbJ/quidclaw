@@ -58,6 +58,53 @@ class TestInit:
         assert result.exit_code == 0
 
 
+# --- Upgrade ---
+
+
+class TestUpgrade:
+    def test_upgrade_updates_workflows(self, tmp_path):
+        runner = _init_project(tmp_path)
+        # Verify workflows exist after init
+        workflows_dir = tmp_path / ".quidclaw" / "workflows"
+        assert workflows_dir.is_dir()
+        assert (workflows_dir / "onboarding.md").exists()
+
+        # Simulate a stale workflow by truncating a file
+        (workflows_dir / "onboarding.md").write_text("old content")
+
+        # Run upgrade
+        result = runner.invoke(
+            main, ["upgrade"], catch_exceptions=False,
+            env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+
+        # Verify workflow was refreshed (no longer "old content")
+        content = (workflows_dir / "onboarding.md").read_text()
+        assert content != "old content"
+        assert "onboarding" in content.lower() or "Onboarding" in content
+
+    def test_upgrade_updates_claude_md(self, tmp_path):
+        runner = _init_project(tmp_path)
+        claude_md = tmp_path / "CLAUDE.md"
+        assert claude_md.exists()
+
+        # Truncate CLAUDE.md
+        claude_md.write_text("old")
+
+        # Run upgrade
+        result = runner.invoke(
+            main, ["upgrade"], catch_exceptions=False,
+            env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+
+        # Verify CLAUDE.md was refreshed
+        content = claude_md.read_text()
+        assert "QuidClaw" in content
+        assert "quidclaw" in content
+
+
 # --- Data Status ---
 
 

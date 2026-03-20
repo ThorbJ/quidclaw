@@ -66,7 +66,7 @@ pytest tests/test_cli.py        # CLI tests
 | `quidclaw add-txn` | Record a transaction (requires `--date`, `--payee`, `--posting`) |
 | `quidclaw balance` | Query account balances (filter with `--account`) |
 | `quidclaw balance-check ACCT AMT` | Reconciliation: assert an account balance |
-| `quidclaw fetch-prices [COMMODITIES...]` | Fetch and record asset prices |
+| `quidclaw fetch-prices [COMMODITIES...]` | Fetch and record asset prices *(not yet implemented)* |
 
 ### Reports & Queries (6)
 
