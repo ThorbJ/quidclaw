@@ -23,7 +23,7 @@ pytest tests/test_cli.py        # CLI tests
 
 ## CLI
 
-21 commands across setup, config, ledger ops, reports, prices, and anomaly detection.
+26 commands across setup, config, ledger ops, reports, prices, anomaly detection, and data sources.
 See `docs/cli-reference.md` for the full command list.
 
 ## Conventions
