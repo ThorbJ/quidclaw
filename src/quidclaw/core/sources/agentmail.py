@@ -124,7 +124,7 @@ class AgentMailSource(DataSource):
         email_dir.mkdir(parents=True, exist_ok=True)
         return email_dir
 
-    def _store_message(self, msg) -> str:
+    def _store_message(self, msg, client=None) -> str:
         """Persist a full message to disk and return the directory path as string."""
         email_dir = self._make_email_dir(msg)
 
@@ -153,19 +153,27 @@ class AgentMailSource(DataSource):
         if msg.html:
             (email_dir / "body.html").write_text(msg.html, encoding="utf-8")
 
-        # Attachments
+        # Attachments — download via get_attachment() → download_url
         attachments = msg.attachments or []
-        if attachments:
+        if attachments and client:
             att_dir = email_dir / "attachments"
             att_dir.mkdir(exist_ok=True)
+            inbox_id = self.source_config.get("inbox_id", "")
             for att in attachments:
                 filename = sanitize_slug(att.filename or "attachment")
                 att_path = att_dir / filename
-                content = att.content
-                if isinstance(content, str):
-                    att_path.write_text(content, encoding="utf-8")
-                elif content is not None:
-                    att_path.write_bytes(content)
+                try:
+                    att_resp = client.inboxes.messages.get_attachment(
+                        inbox_id=inbox_id,
+                        message_id=msg.message_id,
+                        attachment_id=att.attachment_id,
+                    )
+                    if att_resp.download_url:
+                        import urllib.request
+                        data = urllib.request.urlopen(att_resp.download_url).read()
+                        att_path.write_bytes(data)
+                except Exception:
+                    pass  # Attachment download failure is non-fatal
 
         return str(email_dir)
 
@@ -195,7 +203,7 @@ class AgentMailSource(DataSource):
                 full_msg = client.inboxes.messages.get(
                     inbox_id=inbox_id, message_id=msg.message_id
                 )
-                path = self._store_message(full_msg)
+                path = self._store_message(full_msg, client=client)
                 items_stored.append(path)
             except Exception as exc:
                 errors.append(f"Failed to fetch/store message {msg.message_id}: {exc}")
