@@ -42,6 +42,9 @@ AI：已记录 — 2026-03-20 午餐 ¥45.00（微信 → 餐饮）
 - 文档归档 — 自动整理收据、账单到按年月分类的目录
 - BQL 查询 — 灵活的 Beancount 查询语言，想查什么查什么
 - 多币种支持 — 人民币、美元、港币……随意混用
+- 邮箱集成 — 把账单转发到专属邮箱，QuidClaw 自动同步处理
+- 审计追踪 — 每笔交易都能追溯到来源文件，处理日志记录提取和确认的完整过程
+- 可扩展数据源 — 支持邮箱（AgentMail）接入，架构上为未来的银行 API、券商集成预留扩展空间
 
 ## 快速开始
 
@@ -108,6 +111,9 @@ my-finances/
 │   ├── accounts.bean        #   账户开关指令
 │   ├── prices.bean          #   价格指令
 │   └── YYYY/YYYY-MM.bean   #   按月分类的交易
+├── sources/                 # 外部数据源同步数据
+│   └── my-email/            #   邮箱数据
+├── logs/                    # 处理审计日志
 ├── inbox/                   # 收件箱 — 扔文件进来等 AI 处理
 ├── documents/               # 归档文件（按年月整理）
 │   └── YYYY/MM/             #   AI 自动归档
@@ -125,12 +131,24 @@ my-finances/
 └── reports/                 # 生成的报表
 ```
 
-## CLI 命令（17 个）
+## CLI 命令（26 个）
+
+大部分命令支持 `--json` 参数输出结构化数据。
+
+### 初始化与配置
 
 | 命令 | 说明 |
 |------|------|
 | `quidclaw init` | 在当前目录初始化财务项目 |
 | `quidclaw upgrade` | 升级工作流和指导文件到最新版 |
+| `quidclaw set-config KEY VALUE` | 设置配置项 |
+| `quidclaw get-config [KEY]` | 查看配置项 |
+| `quidclaw setup` | 交互式配置向导 |
+
+### 账本操作
+
+| 命令 | 说明 |
+|------|------|
 | `quidclaw add-account NAME` | 开户 |
 | `quidclaw close-account NAME` | 销户 |
 | `quidclaw list-accounts` | 列出所有账户（--type 过滤，--json 输出） |
@@ -139,29 +157,50 @@ my-finances/
 | `quidclaw balance-check ACCOUNT EXPECTED` | 对账断言 |
 | `quidclaw query "SELECT ..."` | 执行 BQL 查询（--json 输出） |
 | `quidclaw report income\|balance_sheet` | 生成财务报表（--period 筛选） |
+
+### 分析与洞察
+
+| 命令 | 说明 |
+|------|------|
 | `quidclaw monthly-summary YYYY MM` | 月度收支总结（--json 输出） |
 | `quidclaw spending-by-category YYYY MM` | 分类支出排行（--json 输出） |
 | `quidclaw month-comparison YYYY MM` | 环比变化（带百分比） |
 | `quidclaw largest-txns YYYY MM` | 最大支出 Top N（--limit 设数量） |
 | `quidclaw detect-anomalies` | 异常检测：重复、订阅、异常值（--json 输出） |
+
+### 数据管理
+
+| 命令 | 说明 |
+|------|------|
 | `quidclaw data-status` | 数据状态：收件箱数量、最后更新时间（--json 输出） |
-| `quidclaw fetch-prices [COMMODITIES...]` | 获取资产价格（*尚未实现*） |
+| `quidclaw add-commodity NAME --source SOURCE` | 注册商品/资产用于价格追踪 |
+| `quidclaw fetch-prices [COMMODITIES...]` | 获取并记录资产价格 |
 
-大部分命令支持 `--json` 参数输出结构化数据。
+### 数据源
 
-## 工作流（7 个）
+| 命令 | 说明 |
+|------|------|
+| `quidclaw add-source NAME --provider PROVIDER` | 配置外部数据源 |
+| `quidclaw list-sources` | 列出已配置的数据源 |
+| `quidclaw remove-source NAME --confirm` | 删除数据源 |
+| `quidclaw sync [SOURCE]` | 从外部数据源同步数据 |
+| `quidclaw mark-processed SOURCE DIR` | 标记已处理的邮件批次 |
+
+## 工作流（9 个）
 
 初始化后自动安装到 `.quidclaw/workflows/`，AI 按需读取执行：
 
-| 工作流 | 说明 |
-|--------|------|
-| `onboarding.md` | 新用户引导 — 了解你的财务状况 |
-| `import-bills.md` | 导入账单 — 解析银行流水、收据 |
-| `reconcile.md` | 对账 — 生成报表前先校验数据准确性 |
-| `monthly-review.md` | 月度回顾 — 生成完整的月度财务分析 |
-| `detect-anomalies.md` | 异常扫描 — 检测可疑交易 |
-| `organize-documents.md` | 文档整理 — 把 inbox 文件归档到 documents/ |
-| `financial-memory.md` | 财务记忆 — 记录非交易类财务信息到知识库 |
+| 工作流 | 触发时机 | 说明 |
+|--------|----------|------|
+| `onboarding.md` | 新用户首次对话 | 问答式了解用户财务状况，内容记入笔记，不入账本 |
+| `import-bills.md` | 用户上传文件或把文件放入 inbox | 解析银行流水/收据，去重，入账，归档原始文件 |
+| `reconcile.md` | 生成报表前 | 检查数据完整性，执行余额断言，标记异常 |
+| `monthly-review.md` | 用户要求月度总结或回顾 | 生成白话财务报告，含趋势、异常和可操作建议 |
+| `detect-anomalies.md` | 用户要求检查或主动触发 | 扫描重复扣费、订阅变价、异常大额、未知商户 |
+| `organize-documents.md` | inbox 积累了文件 | 把文件归档到 documents/YYYY/MM/，按规则命名 |
+| `financial-memory.md` | 用户分享非交易类财务信息 | 把保险、贷款、薪资变动、财务决策记入笔记 |
+| `check-email.md` | 同步触发新邮件 | 检查邮箱数据源，处理附件，带可追溯元数据入账 |
+| `daily-routine.md` | 用户发起日常检查或定时触发 | 汇聚所有数据源，处理新内容，检查提醒，异常扫描 |
 
 ## 开发
 
@@ -185,6 +224,7 @@ pytest tests/e2e/ -v -m e2e      # 端到端测试（慢，调用 AI API）
 - beanquery — BQL 查询
 - Click — CLI 框架
 - PyYAML — YAML 解析
+- agentmail — 邮箱集成（可选）
 
 ## 许可证
 
