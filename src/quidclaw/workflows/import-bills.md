@@ -5,7 +5,7 @@ You are importing financial documents into QuidClaw. The user may have uploaded 
 ## Overview
 
 For EACH file, you must complete ALL of these steps in order:
-1. Parse → 2. Dedup → 3. Confirm → 4. Record → 5. Archive the file → 6. Capture extra info
+1. Parse → 2. Dedup → 3. Confirm → 4. Record → 5. Archive the file → 6. Write processing log → 7. Capture extra info
 
 **Do NOT move to the next file until the current file is fully archived.**
 
@@ -15,7 +15,7 @@ For EACH file, you must complete ALL of these steps in order:
 - Check if the user has uploaded or pasted files in the current conversation
 - List what you found
 
-## For Each File, Do Steps 2-6:
+## For Each File, Do Steps 2-8:
 
 ### Step 2: Parse the Document
 
@@ -60,6 +60,9 @@ For each confirmed transaction:
 3. Run `quidclaw add-txn --date D --payee P --narration N --posting '{"account":"...","amount":"...","currency":"..."}'` via Bash for each transaction
 4. Use descriptive narrations the user will understand later
 5. Match the currency from the document (do NOT default — use what the document says)
+6. Include source metadata for traceability:
+   `--meta '{"source":"inbox_file:{FILENAME}","source-file":"documents/YYYY/MM/{ARCHIVED_NAME}"}'`
+   This enables tracing any transaction back to its source document.
 
 ### Step 6: Archive This File — IMMEDIATELY
 
@@ -79,7 +82,26 @@ Examples:
 
 **Then verify**: Run `ls inbox/` to confirm the file is gone. If it's still there, try again.
 
-### Step 7: Capture Extra Info (if applicable)
+### Step 7: Write Processing Log
+
+After archiving, write a YAML processing log to `logs/`:
+```yaml
+id: "evt_{timestamp}_{random6hex}"
+timestamp: "{ISO timestamp}"
+action: "import"
+source:
+  type: "inbox_file"
+  path: "inbox/{original_filename}"
+input_files:
+  - "inbox/{original_filename}"
+extracted:
+  transactions_found: {count}
+  transactions_recorded: {count}
+archived_to:
+  - "documents/YYYY/MM/{archived_name}"
+```
+
+### Step 8: Capture Extra Info (if applicable)
 
 If the document contains non-transaction information (account numbers, interest rates, credit limits, policy terms):
 - Save it to the appropriate `notes/` path, or append to an existing note
