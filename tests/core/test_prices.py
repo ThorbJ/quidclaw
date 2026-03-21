@@ -1,4 +1,5 @@
 import datetime
+import pytest
 from decimal import Decimal
 from quidclaw.config import QuidClawConfig
 from quidclaw.core.ledger import Ledger
@@ -32,11 +33,65 @@ def test_write_price_loads_without_error(tmp_path):
     assert len(price_entries) == 1
 
 
-def test_fetch_prices_no_beanprice_metadata(tmp_path):
+# --- add_commodity ---
+
+
+def test_add_commodity_fiat(tmp_path):
+    ledger = make_ledger(tmp_path)
+    pm = PriceManager(ledger)
+    pm.add_commodity("USD", "yahoo/USDCNY=X", "CNY")
+    content = ledger.config.accounts_bean.read_text()
+    assert "commodity USD" in content
+    assert 'price: "CNY:yahoo/USDCNY=X"' in content
+    entries, errors, _ = ledger.load()
+    assert len(errors) == 0
+
+
+def test_add_commodity_crypto(tmp_path):
+    ledger = make_ledger(tmp_path)
+    pm = PriceManager(ledger)
+    pm.add_commodity("BTC", "yahoo/BTC-CNY", "CNY")
+    content = ledger.config.accounts_bean.read_text()
+    assert "commodity BTC" in content
+    assert 'price: "CNY:yahoo/BTC-CNY"' in content
+    entries, errors, _ = ledger.load()
+    assert len(errors) == 0
+
+
+def test_add_commodity_stock(tmp_path):
+    ledger = make_ledger(tmp_path)
+    pm = PriceManager(ledger)
+    pm.add_commodity("AAPL", "yahoo/AAPL", "USD")
+    content = ledger.config.accounts_bean.read_text()
+    assert "commodity AAPL" in content
+    assert 'price: "USD:yahoo/AAPL"' in content
+    entries, errors, _ = ledger.load()
+    assert len(errors) == 0
+
+
+def test_add_commodity_duplicate_raises(tmp_path):
+    ledger = make_ledger(tmp_path)
+    pm = PriceManager(ledger)
+    pm.add_commodity("AAPL", "yahoo/AAPL", "USD")
+    with pytest.raises(ValueError, match="already exists"):
+        pm.add_commodity("AAPL", "yahoo/AAPL", "USD")
+
+
+def test_add_commodity_with_date(tmp_path):
+    ledger = make_ledger(tmp_path)
+    pm = PriceManager(ledger)
+    pm.add_commodity("ETH", "yahoo/ETH-CNY", "CNY", date=datetime.date(2024, 1, 1))
+    content = ledger.config.accounts_bean.read_text()
+    assert "2024-01-01 commodity ETH" in content
+
+
+# --- fetch_prices ---
+
+
+def test_fetch_prices_no_commodities(tmp_path):
     """fetch_prices raises ValueError when no commodity has price metadata."""
     ledger = make_ledger(tmp_path)
     pm = PriceManager(ledger)
-    import pytest
     with pytest.raises(ValueError, match="No commodity directives"):
         pm.fetch_prices()
 
@@ -45,20 +100,15 @@ def test_fetch_prices_filter_unknown_commodity(tmp_path):
     """fetch_prices raises ValueError when filtering to a commodity without metadata."""
     ledger = make_ledger(tmp_path)
     pm = PriceManager(ledger)
-    import pytest
     with pytest.raises(ValueError, match="No price metadata found for"):
         pm.fetch_prices(["NOSUCH"])
 
 
-def test_fetch_prices_with_commodity_directive(tmp_path):
-    """fetch_prices fetches from beanprice when commodity has price metadata."""
+def test_fetch_prices_with_commodity(tmp_path):
+    """fetch_prices fetches from beanprice when commodity is registered."""
     ledger = make_ledger(tmp_path)
-    # Add a commodity directive with price metadata
-    ledger.append(
-        ledger.config.accounts_bean,
-        '2024-01-01 commodity USD\n  price: "CNY:yahoo/USDCNY=X"\n\n',
-    )
     pm = PriceManager(ledger)
+    pm.add_commodity("USD", "yahoo/USDCNY=X", "CNY")
     results = pm.fetch_prices()
     assert len(results) == 1
     r = results[0]
@@ -75,12 +125,9 @@ def test_fetch_prices_with_commodity_directive(tmp_path):
 def test_fetch_prices_filter_by_commodity(tmp_path):
     """fetch_prices can filter to specific commodities."""
     ledger = make_ledger(tmp_path)
-    ledger.append(
-        ledger.config.accounts_bean,
-        '2024-01-01 commodity USD\n  price: "CNY:yahoo/USDCNY=X"\n\n'
-        '2024-01-01 commodity EUR\n  price: "CNY:yahoo/EURCNY=X"\n\n',
-    )
     pm = PriceManager(ledger)
+    pm.add_commodity("USD", "yahoo/USDCNY=X", "CNY")
+    pm.add_commodity("EUR", "yahoo/EURCNY=X", "CNY")
     results = pm.fetch_prices(["USD"])
     assert len(results) == 1
     assert results[0]["commodity"] == "USD"

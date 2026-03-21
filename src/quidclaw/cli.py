@@ -334,6 +334,26 @@ def data_status(as_json):
         click.echo(f"Last modified: {status.get('last_modified', 'N/A')}")
 
 
+@main.command("add-commodity")
+@click.argument("name")
+@click.option("--source", required=True, help='Price source (e.g., "yahoo/AAPL")')
+@click.option("--quote", default="USD", help="Quote currency (default: USD)")
+@click.option("--date", "open_date", default=None, help="Date (YYYY-MM-DD)")
+def add_commodity(name, source, quote, open_date):
+    """Register a commodity (stock, fund, custom asset) for price tracking."""
+    import datetime as dt
+    from quidclaw.core.prices import PriceManager
+    ledger = get_ledger()
+    mgr = PriceManager(ledger)
+    date = dt.date.fromisoformat(open_date) if open_date else None
+    try:
+        mgr.add_commodity(name, source, quote, date)
+    except ValueError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+    click.echo(f"Registered commodity {name} ({quote}:{source})")
+
+
 @main.command("fetch-prices")
 @click.argument("commodities", nargs=-1)
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
@@ -342,7 +362,11 @@ def fetch_prices(commodities, as_json):
     from quidclaw.core.prices import PriceManager
     ledger = get_ledger()
     mgr = PriceManager(ledger)
-    results = mgr.fetch_prices(list(commodities) if commodities else None)
+    try:
+        results = mgr.fetch_prices(list(commodities) if commodities else None)
+    except (ValueError, ImportError) as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
     if as_json:
         click.echo(json.dumps(results, indent=2))
     else:
@@ -412,7 +436,29 @@ quidclaw month-comparison YYYY MM    # Month-over-month changes
 quidclaw largest-txns YYYY MM        # Top expenses
 quidclaw detect-anomalies            # Find duplicates, outliers, etc.
 quidclaw data-status                 # Inbox count, last ledger update
+quidclaw add-commodity NAME --source SOURCE --quote CURRENCY  # Register price tracking
+quidclaw fetch-prices [COMMODITY...] # Fetch prices for registered commodities
 ```
+
+### Price Tracking
+
+When you encounter a new currency, crypto, or investment asset, register it with `add-commodity`:
+
+```
+# Fiat currencies — ticker format: {{BASE}}{{QUOTE}}=X
+quidclaw add-commodity USD --source yahoo/USDCNY=X --quote CNY
+quidclaw add-commodity EUR --source yahoo/EURCNY=X --quote CNY
+
+# Crypto — ticker format: {{BASE}}-{{QUOTE}}
+quidclaw add-commodity BTC --source yahoo/BTC-CNY --quote CNY
+quidclaw add-commodity ETH --source yahoo/ETH-USD --quote USD
+
+# Stocks/funds — ticker is the symbol, quote is trading currency
+quidclaw add-commodity AAPL --source yahoo/AAPL --quote USD
+quidclaw add-commodity 600519 --source yahoo/600519.SS --quote CNY
+```
+
+Then `quidclaw fetch-prices` will fetch all registered prices automatically.
 
 Most commands support `--json` for structured output.
 
