@@ -113,6 +113,52 @@ data_sources:
   #   enabled: true
 ```
 
+### Config API for nested data_sources
+
+The existing `get_setting`/`set_setting` API works with flat keys. Data sources need nested structure, so `QuidClawConfig` gains dedicated methods:
+
+```python
+# New methods on QuidClawConfig
+def get_sources(self) -> dict:
+    """Return the data_sources subtree, default {}."""
+    return self.load_settings().get("data_sources", {})
+
+def get_source(self, name: str) -> dict | None:
+    """Get a single source config by name."""
+    return self.get_sources().get(name)
+
+def add_source(self, name: str, source_config: dict) -> None:
+    """Add or update a source entry under data_sources."""
+    settings = self.load_settings()
+    settings.setdefault("data_sources", {})[name] = source_config
+    self.save_settings(settings)
+
+def remove_source(self, name: str) -> None:
+    """Remove a source entry. Raises KeyError if not found."""
+    settings = self.load_settings()
+    sources = settings.get("data_sources", {})
+    if name not in sources:
+        raise KeyError(f"Source not found: {name}")
+    del sources[name]
+    self.save_settings(settings)
+
+@property
+def sources_dir(self) -> Path:
+    return self.data_dir / "sources"
+
+@property
+def logs_dir(self) -> Path:
+    return self.data_dir / "logs"
+
+def source_dir(self, source_name: str) -> Path:
+    """Directory for a specific source's synced data."""
+    return self.sources_dir / source_name
+
+def source_state_file(self, source_name: str) -> Path:
+    """Sync state file for a specific source."""
+    return self.source_dir(source_name) / ".state.yaml"
+```
+
 ### Core classes
 
 ```
@@ -130,6 +176,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 from datetime import datetime
+from quidclaw.config import QuidClawConfig
 
 @dataclass
 class SyncResult:
@@ -142,7 +189,15 @@ class SyncResult:
     errors: list[str]           # Any errors encountered
 
 class DataSource(ABC):
-    """Base class for all data sources."""
+    """Base class for all data sources.
+
+    All providers must accept these three constructor arguments.
+    """
+
+    def __init__(self, source_name: str, source_config: dict, config: QuidClawConfig):
+        self.source_name = source_name
+        self.source_config = source_config
+        self.config = config
 
     @staticmethod
     @abstractmethod
@@ -163,11 +218,23 @@ class DataSource(ABC):
     def status(self) -> dict:
         """Return current status (last sync time, item count, etc.)."""
         ...
+
+    def provision(self) -> dict:
+        """Optional: provision remote resources (e.g., create a mailbox).
+
+        Called by add-source when setting up a new source.
+        Returns updated source_config with any new fields (e.g., inbox_id).
+        Default: no-op, returns source_config unchanged.
+        """
+        return self.source_config
 ```
 
 **`registry.py` — Provider registry:**
 
 ```python
+from quidclaw.config import QuidClawConfig
+from quidclaw.core.sources.base import DataSource
+
 # Maps provider names to classes
 # New providers register themselves here
 PROVIDERS: dict[str, type[DataSource]] = {}
@@ -193,10 +260,11 @@ def create_source(source_name: str, source_config: dict, config: QuidClawConfig)
 **`agentmail.py` — AgentMail implementation:**
 
 Key behaviors:
+- `provision()`: calls AgentMail API to create a new inbox (with optional username), returns updated config with `inbox_id`
 - `sync()`: calls AgentMail API to list messages since last sync, downloads each email (envelope + body + attachments) into `sources/{source_name}/{timestamp}_{sender}/`
-- Uses `sources/{source_name}/.state.yaml` to track `last_sync` timestamp and processed message IDs
-- Deduplicates by `message_id` — never downloads the same email twice
-- Constructor takes `source_name`, `source_config` (with api_key, inbox_id), and `QuidClawConfig`
+- Sender slug in directory names is sanitized: replace `/`, `:`, `\`, `<`, `>` with `-`, truncate to 50 chars
+- Uses `sources/{source_name}/.state.yaml` to track `last_sync` timestamp only (no unbounded ID list — deduplication is by checking if local directory already exists for a given `message_id`)
+- `sync()` exit behavior: returns `SyncResult` with `errors` list populated for partial failures. CLI exits 0 if any items were fetched, exits 1 only if zero items fetched AND errors occurred
 
 ### Email storage format
 
@@ -237,11 +305,10 @@ status: "unprocessed"             # unprocessed → processed → archived
 **Sync state file (`sources/my-email/.state.yaml`):**
 ```yaml
 last_sync: "2026-03-21T19:00:00+08:00"
-processed_ids:
-  - "msg_abc123"
-  - "msg_def456"
 total_synced: 15
 ```
+
+Note: no `processed_ids` list — deduplication uses `last_sync` timestamp plus checking if a local directory already exists for a given `message_id` (stored in each `envelope.yaml`). This avoids unbounded list growth.
 
 ---
 
@@ -297,6 +364,61 @@ user_confirmations:
   - "User rejected 2 as duplicates"
 ```
 
+### 3.1.1 AuditLogger class design
+
+```python
+# core/logs.py
+import uuid
+from datetime import datetime
+from pathlib import Path
+from quidclaw.config import QuidClawConfig
+import yaml
+
+class AuditLogger:
+    """Writes structured processing logs to logs/ directory."""
+
+    def __init__(self, config: QuidClawConfig):
+        self.config = config
+
+    def log_event(self, action: str, source: dict, **fields) -> str:
+        """Write a processing log entry. Returns the event ID.
+
+        Args:
+            action: "import", "record", "fetch-prices", etc.
+            source: dict with type, path, provider, etc.
+            **fields: additional fields (extracted, recorded_transactions,
+                      rejected, archived_to, user_confirmations, etc.)
+        """
+        event_id = f"evt_{datetime.now().strftime('%Y%m%dT%H%M%S')}_{uuid.uuid4().hex[:6]}"
+        timestamp = datetime.now().isoformat()
+
+        log_entry = {
+            "id": event_id,
+            "timestamp": timestamp,
+            "action": action,
+            "source": source,
+            **fields,
+        }
+
+        self.config.logs_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"{datetime.now().strftime('%Y-%m-%dT%H-%M-%S')}_{uuid.uuid4().hex[:6]}_{action}.yaml"
+        log_path = self.config.logs_dir / filename
+        log_path.write_text(yaml.dump(log_entry, default_flow_style=False, allow_unicode=True))
+
+        return event_id
+
+    def list_logs(self, limit: int = 20) -> list[dict]:
+        """List recent log entries, newest first."""
+        if not self.config.logs_dir.exists():
+            return []
+        logs = []
+        for f in sorted(self.config.logs_dir.glob("*.yaml"), reverse=True)[:limit]:
+            logs.append(yaml.safe_load(f.read_text()))
+        return logs
+```
+
+The filename includes a 6-char random suffix to prevent collisions when processing multiple items in rapid succession.
+
 ### 3.2 Source metadata on transactions
 
 When recording transactions, `add-txn` gains an optional `--meta` parameter:
@@ -321,6 +443,28 @@ This produces in the `.bean` file:
   Expenses:Transport:Taxi     45.00 CNY
   Liabilities:CreditCard:CMB:1234
 ```
+
+**`TransactionManager.add_transaction` signature change:**
+
+```python
+def add_transaction(
+    self,
+    date: datetime.date,
+    payee: str,
+    narration: str,
+    postings: list[dict],
+    metadata: dict | None = None,    # NEW parameter
+) -> None:
+    lines = [f'{date} * "{payee}" "{narration}"\n']
+    # Metadata lines go BEFORE postings (Beancount V3 format)
+    if metadata:
+        for key, value in metadata.items():
+            lines.append(f'  {key}: "{value}"\n')
+    for p in postings:
+        # ... existing posting logic unchanged
+```
+
+Note: Beancount V3 metadata keys support hyphens (`source-file`, `import-id`). Verified in Beancount V3 spec.
 
 ### 3.3 Log types
 
@@ -353,10 +497,13 @@ No special CLI command needed — the AI's native file tools are sufficient.
 # Data source management
 quidclaw add-source NAME --provider PROVIDER [--api-key KEY] [--inbox-id ID]
 quidclaw list-sources [--json]
-quidclaw remove-source NAME
+quidclaw remove-source NAME --confirm
 
 # Sync
 quidclaw sync [SOURCE_NAME] [--json]    # Sync one source, or all enabled sources
+
+# Processing
+quidclaw mark-processed SOURCE_NAME EMAIL_DIR   # Update envelope.yaml status
 ```
 
 ### Modified commands
@@ -372,7 +519,11 @@ quidclaw add-txn --date D --payee P --posting '...' [--meta '{"source":"..."}']
 
 **`sync`**: Instantiates the appropriate DataSource via the registry, calls `sync()`, prints summary. Returns JSON with `SyncResult` fields when `--json` is used.
 
-**`list-sources`**: Shows all configured sources with last sync time and status.
+**`list-sources`**: Shows all configured sources with last sync time and status. Also includes count of unprocessed items per source.
+
+**`remove-source`**: Removes the config entry from `data_sources`. Does NOT delete the local `sources/{name}/` directory (synced data is preserved for audit trail). Prints a message telling the user where the data is if they want to delete it manually. Requires `--confirm` flag to prevent accidental removal.
+
+**`data-status`** (existing, extended): Now also reports source status — for each enabled source, shows unprocessed item count and last sync time. The `--json` output gains a `sources` key.
 
 ---
 
@@ -450,7 +601,7 @@ Guides the AI through checking email sources:
    d. Record transactions with source metadata (`--meta`)
    e. Create processing log in `logs/`
    f. Archive attachments to `documents/`
-   g. Update `envelope.yaml` status to `processed`
+   g. Mark as processed: `quidclaw mark-processed SOURCE_NAME EMAIL_DIR`
 
 ### New: `daily-routine.md`
 
@@ -480,15 +631,13 @@ Add source metadata to the recording step:
 
 ### `quidclaw init`
 
-Add to directory creation:
-- `sources/` directory
-- `logs/` directory
+`Ledger.init()` gains `sources/` and `logs/` in its directory creation list (alongside `inbox/`, `documents/`, `notes/`, `reports/`). Directory creation responsibility stays in `Ledger.init()`, not duplicated elsewhere.
 
 ### `quidclaw upgrade`
 
 - Copy new workflow files (`check-email.md`, `daily-routine.md`)
 - Update `CLAUDE.md` with new commands and workflow references
-- Create `sources/` and `logs/` directories if they don't exist
+- Call `Ledger.ensure_dirs()` (new method) to create any missing directories — this covers `sources/` and `logs/` for existing projects that were initialized before this feature
 
 ### Updated `CLAUDE.md` generation
 
@@ -550,7 +699,7 @@ This keeps the core QuidClaw installable without email support. The `agentmail` 
 
 ## 10. Security Considerations
 
-- **API keys in config**: Stored in plaintext in `.quidclaw/config.yaml`. This is consistent with how other local-first tools handle credentials (e.g., `.npmrc`, `.pypirc`). Users should `.gitignore` this file if version-controlling their finances.
+- **API keys in config**: Stored in plaintext in `.quidclaw/config.yaml` by default. Supports `env:VAR_NAME` syntax (e.g., `api_key: env:AGENTMAIL_API_KEY`) so power users can keep secrets out of config files. The `create_source` factory resolves `env:` references before passing config to the provider. Users should `.gitignore` config.yaml if version-controlling their finances.
 - **Email content on disk**: Emails are stored locally in `sources/`. This is intentional — the user owns their data. But the directory should be mentioned in `.gitignore` suggestions.
 - **No credentials in logs**: Processing logs never contain API keys or auth tokens.
 - **Provider isolation**: Each provider only has access to its own config values. The base class enforces this.
