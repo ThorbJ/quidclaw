@@ -23,13 +23,16 @@ class Ledger:
             self.config.prices_bean.write_text("")
 
         if not self.config.main_bean.exists():
-            self.config.main_bean.write_text(
-                'option "title" "QuidClaw Ledger"\n'
-                'option "operating_currency" "CNY"\n'
+            operating = self.config.get_setting("operating_currency")
+            lines = 'option "title" "QuidClaw Ledger"\n'
+            if operating:
+                lines += f'option "operating_currency" "{operating}"\n'
+            lines += (
                 '\n'
                 'include "accounts.bean"\n'
                 'include "prices.bean"\n'
             )
+            self.config.main_bean.write_text(lines)
 
     def load(self):
         """Load and parse the entire ledger. Returns (entries, errors, options)."""

@@ -2,6 +2,8 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import yaml
+
 
 @dataclass
 class QuidClawConfig:
@@ -18,6 +20,35 @@ class QuidClawConfig:
     def is_configured(self) -> bool:
         """Whether a data directory has been set."""
         return self.data_dir is not None
+
+    @property
+    def config_dir(self) -> Path:
+        return self.data_dir / ".quidclaw"
+
+    @property
+    def config_file(self) -> Path:
+        return self.config_dir / "config.yaml"
+
+    def load_settings(self) -> dict:
+        """Load settings from .quidclaw/config.yaml. Returns empty dict if missing."""
+        if self.config_file.exists():
+            return yaml.safe_load(self.config_file.read_text()) or {}
+        return {}
+
+    def save_settings(self, settings: dict) -> None:
+        """Save settings to .quidclaw/config.yaml."""
+        self.config_dir.mkdir(parents=True, exist_ok=True)
+        self.config_file.write_text(yaml.dump(settings, default_flow_style=False, allow_unicode=True))
+
+    def get_setting(self, key: str, default=None):
+        """Get a single setting value."""
+        return self.load_settings().get(key, default)
+
+    def set_setting(self, key: str, value) -> None:
+        """Set a single setting value."""
+        settings = self.load_settings()
+        settings[key] = value
+        self.save_settings(settings)
 
     @property
     def ledger_dir(self) -> Path:

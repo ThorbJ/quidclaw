@@ -3,15 +3,14 @@ from beancount.core import data
 from quidclaw.core.ledger import Ledger
 from quidclaw.core.accounts import AccountManager
 
+# Default account template. Currency is filled in from config at runtime.
 DEFAULT_ACCOUNTS = [
     # Assets
-    {"name": "Assets:Bank:Checking", "currencies": ["CNY"]},
-    {"name": "Assets:Bank:Savings", "currencies": ["CNY"]},
-    {"name": "Assets:Cash", "currencies": ["CNY"]},
-    {"name": "Assets:WeChat", "currencies": ["CNY"]},
-    {"name": "Assets:Alipay", "currencies": ["CNY"]},
+    {"name": "Assets:Bank:Checking", "use_operating_currency": True},
+    {"name": "Assets:Bank:Savings", "use_operating_currency": True},
+    {"name": "Assets:Cash", "use_operating_currency": True},
     # Liabilities
-    {"name": "Liabilities:CreditCard", "currencies": ["CNY"]},
+    {"name": "Liabilities:CreditCard", "use_operating_currency": True},
     # Income
     {"name": "Income:Salary"},
     {"name": "Income:Bonus"},
@@ -52,6 +51,9 @@ class LedgerInitializer:
         except Exception:
             pass
 
+        # Resolve operating currency from config
+        operating = self.ledger.config.get_setting("operating_currency")
+
         template = accounts or DEFAULT_ACCOUNTS
         mgr = AccountManager(self.ledger)
         created = []
@@ -62,6 +64,8 @@ class LedgerInitializer:
             if name in existing:
                 continue
             currencies = acct.get("currencies")
+            if currencies is None and acct.get("use_operating_currency") and operating:
+                currencies = [operating]
             mgr.add_account(name, currencies=currencies, open_date=today)
             created.append(name)
 

@@ -32,11 +32,19 @@ class TestInit:
         assert (tmp_path / "documents").is_dir()
         assert (tmp_path / "notes").is_dir()
 
-    def test_creates_default_accounts(self, tmp_path):
+    def test_creates_empty_accounts_file(self, tmp_path):
         _init_project(tmp_path)
         accounts_bean = tmp_path / "ledger" / "accounts.bean"
         assert accounts_bean.exists()
-        content = accounts_bean.read_text()
+
+    def test_setup_creates_default_accounts(self, tmp_path):
+        runner = _init_project(tmp_path)
+        env = _env(tmp_path)
+        # Set operating currency first
+        runner.invoke(main, ["set-config", "operating_currency", "CNY"], env=env)
+        result = runner.invoke(main, ["setup"], catch_exceptions=False, env=env)
+        assert result.exit_code == 0
+        content = (tmp_path / "ledger" / "accounts.bean").read_text()
         assert "Assets" in content
         assert "Expenses" in content
         assert "Income" in content
@@ -180,9 +188,11 @@ class TestAccounts:
 
     def test_list_accounts_json(self, tmp_path):
         runner = _init_project(tmp_path)
+        env = _env(tmp_path)
+        runner.invoke(main, ["add-account", "Assets:Bank:Test", "--currencies", "CNY"], env=env)
         result = runner.invoke(
             main, ["list-accounts", "--json"], catch_exceptions=False,
-            env=_env(tmp_path),
+            env=env,
         )
         assert result.exit_code == 0
         accounts = json.loads(result.output)

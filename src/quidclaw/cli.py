@@ -40,19 +40,11 @@ def main():
 
 
 @main.command()
-@click.option("--no-template", is_flag=True, default=False, help="Skip default account template")
-def init(no_template):
+def init():
     """Initialize a new financial project in the current directory."""
     config = get_config()
     ledger = Ledger(config)
     ledger.init()
-
-    if not no_template:
-        from quidclaw.core.init import LedgerInitializer
-        initializer = LedgerInitializer(ledger)
-        created = initializer.init_with_template()
-        if created:
-            click.echo(f"Created {len(created)} default accounts")
 
     # Copy workflow files
     workflows_dir = Path(__file__).parent / "workflows"
@@ -89,19 +81,89 @@ def upgrade():
     click.echo("Upgrade complete.")
 
 
+@main.command("set-config")
+@click.argument("key")
+@click.argument("value")
+def set_config(key, value):
+    """Set a configuration value."""
+    config = get_config()
+    config.set_setting(key, value)
+
+    # If setting operating_currency, also update main.bean
+    if key == "operating_currency" and config.main_bean.exists():
+        content = config.main_bean.read_text()
+        if 'option "operating_currency"' in content:
+            import re
+            content = re.sub(
+                r'option "operating_currency" ".*?"',
+                f'option "operating_currency" "{value}"',
+                content,
+            )
+        else:
+            # Insert after the title line
+            content = content.replace(
+                'option "title" "QuidClaw Ledger"\n',
+                f'option "title" "QuidClaw Ledger"\n'
+                f'option "operating_currency" "{value}"\n',
+            )
+        config.main_bean.write_text(content)
+
+    click.echo(f"Set {key} = {value}")
+
+
+@main.command("get-config")
+@click.argument("key", required=False)
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+def get_config_cmd(key, as_json):
+    """Get configuration values."""
+    config = get_config()
+    if key:
+        value = config.get_setting(key)
+        if as_json:
+            click.echo(json.dumps({key: value}))
+        else:
+            click.echo(f"{key}: {value}" if value is not None else f"{key}: (not set)")
+    else:
+        settings = config.load_settings()
+        if as_json:
+            click.echo(json.dumps(settings, indent=2))
+        else:
+            if not settings:
+                click.echo("No settings configured.")
+            for k, v in settings.items():
+                click.echo(f"{k}: {v}")
+
+
+@main.command()
+def setup():
+    """Create default accounts using configured operating currency."""
+    from quidclaw.core.init import LedgerInitializer
+    ledger = get_ledger()
+    operating = ledger.config.get_setting("operating_currency")
+    if not operating:
+        click.echo("Error: operating_currency not set. Run 'quidclaw set-config operating_currency CNY' first.", err=True)
+        sys.exit(1)
+    initializer = LedgerInitializer(ledger)
+    created = initializer.init_with_template()
+    if created:
+        click.echo(f"Created {len(created)} default accounts ({operating})")
+    else:
+        click.echo("All default accounts already exist.")
+
+
 # --- Ledger Operations ---
 
 
 @main.command("add-account")
 @click.argument("name")
-@click.option("--currencies", default="CNY", help="Comma-separated currencies")
+@click.option("--currencies", default=None, help="Comma-separated currencies")
 @click.option("--date", "open_date", default=None, help="Open date (YYYY-MM-DD)")
 def add_account(name, currencies, open_date):
     """Open a new account."""
     from quidclaw.core.accounts import AccountManager
     ledger = get_ledger()
     mgr = AccountManager(ledger)
-    currency_list = [c.strip() for c in currencies.split(",")]
+    currency_list = [c.strip() for c in currencies.split(",")] if currencies else None
     mgr.add_account(name, currency_list, open_date)
     click.echo(f"Opened account {name}")
 
@@ -176,12 +238,14 @@ def balance(account, as_json):
 @main.command("balance-check")
 @click.argument("account")
 @click.argument("expected")
-@click.option("--currency", default="CNY")
+@click.option("--currency", default=None, help="Currency (defaults to operating currency)")
 def balance_check(account, expected, currency):
     """Reconciliation: assert an account balance."""
     from decimal import Decimal
     from quidclaw.core.balance import BalanceManager
     ledger = get_ledger()
+    if currency is None:
+        currency = ledger.config.get_setting("operating_currency", "CNY")
     mgr = BalanceManager(ledger)
     ok, message = mgr.balance_check(account, Decimal(expected), currency)
     click.echo(message)
@@ -382,16 +446,8 @@ def fetch_prices(commodities, as_json):
 
 def _generate_claude_md(config: QuidClawConfig):
     """Generate CLAUDE.md for the financial project."""
-    # Read operating currency from ledger if available
-    currency = "CNY"
-    if config.main_bean.exists():
-        try:
-            content = config.main_bean.read_text()
-            for line in content.split("\n"):
-                if "operating_currency" in line and '"' in line:
-                    currency = line.split('"')[-2]
-        except Exception:
-            pass
+    currency = config.get_setting("operating_currency")
+    currency_line = f"- Operating currency: {currency}" if currency else "- Operating currency: (not yet configured — will be set during onboarding)"
 
     claude_md_path = Path(config.data_dir) / "CLAUDE.md"
     claude_md_path.write_text(f"""\
@@ -403,9 +459,14 @@ Speak the user's language. Never mention beancount, double-entry, or accounting 
 ## First Thing to Do
 
 When you start a conversation, check:
-1. Does `notes/profile.md` exist? If NO → this is a new user. Read `.quidclaw/workflows/onboarding.md` and start the onboarding interview.
+1. Read `.quidclaw/config.yaml`. If `operating_currency` is missing → this is a new user. Read `.quidclaw/workflows/onboarding.md` and start the onboarding interview.
 2. Are there files in `inbox/`? If YES → mention them and offer to process.
 3. Otherwise → greet the user and ask how you can help.
+
+## Configuration
+
+{currency_line}
+- Config file: `.quidclaw/config.yaml`
 
 ## Directory Structure
 
@@ -420,12 +481,22 @@ When you start a conversation, check:
 Use these via Bash when you need Beancount engine operations:
 
 ```
-quidclaw init                        # Initialize ledger
+# Setup
+quidclaw init                        # Initialize ledger structure
+quidclaw set-config KEY VALUE        # Set a configuration value
+quidclaw get-config [KEY]            # Read configuration
+quidclaw setup                       # Create default accounts (requires operating_currency)
 quidclaw upgrade                     # Update workflows to latest version
-quidclaw add-account NAME            # Open account
+
+# Accounts
+quidclaw add-account NAME [--currencies X]  # Open account
 quidclaw close-account NAME          # Close account
 quidclaw list-accounts [--type X]    # List accounts
+
+# Transactions
 quidclaw add-txn --date D --payee P --posting '{{...}}'  # Record transaction
+
+# Queries & Reports
 quidclaw balance [--account X]       # Query balances
 quidclaw balance-check ACCT AMT      # Reconciliation assertion
 quidclaw query "SELECT ..."          # Execute BQL query
@@ -436,7 +507,9 @@ quidclaw month-comparison YYYY MM    # Month-over-month changes
 quidclaw largest-txns YYYY MM        # Top expenses
 quidclaw detect-anomalies            # Find duplicates, outliers, etc.
 quidclaw data-status                 # Inbox count, last ledger update
-quidclaw add-commodity NAME --source SOURCE --quote CURRENCY  # Register price tracking
+
+# Price Tracking
+quidclaw add-commodity NAME --source SOURCE --quote CURRENCY  # Register price source
 quidclaw fetch-prices [COMMODITY...] # Fetch prices for registered commodities
 ```
 
@@ -447,11 +520,9 @@ When you encounter a new currency, crypto, or investment asset, register it with
 ```
 # Fiat currencies — ticker format: {{BASE}}{{QUOTE}}=X
 quidclaw add-commodity USD --source yahoo/USDCNY=X --quote CNY
-quidclaw add-commodity EUR --source yahoo/EURCNY=X --quote CNY
 
 # Crypto — ticker format: {{BASE}}-{{QUOTE}}
 quidclaw add-commodity BTC --source yahoo/BTC-CNY --quote CNY
-quidclaw add-commodity ETH --source yahoo/ETH-USD --quote USD
 
 # Stocks/funds — ticker is the symbol, quote is trading currency
 quidclaw add-commodity AAPL --source yahoo/AAPL --quote USD
@@ -493,6 +564,5 @@ Read `.quidclaw/workflows/<name>.md` for detailed workflow instructions:
 - Transactions go into monthly files: `ledger/YYYY/YYYY-MM.bean`
 - Document naming: `{{Source}}-{{Type}}-{{YYYY-MM}}.{{ext}}`
 - Account naming: use last 4 digits or identifiers (e.g., Assets:Bank:CMB:1234)
-- Default currency: {currency} (unless user specifies otherwise)
 - Always reconcile before generating reports or answering financial questions
 """)
