@@ -420,6 +420,167 @@ def add_commodity(name, source, quote, open_date):
     click.echo(f"Registered commodity {name} ({quote}:{source})")
 
 
+@main.command("add-source")
+@click.argument("name")
+@click.option("--provider", required=True, help="Provider type (e.g., agentmail)")
+@click.option("--api-key", default=None, help="API key for the provider")
+@click.option("--inbox-id", default=None, help="Inbox/mailbox ID (provider-specific)")
+@click.option("--username", default=None, help="Preferred username for new inbox")
+@click.option("--display-name", default=None, help="Display name for the inbox")
+def add_source(name, provider, api_key, inbox_id, username, display_name):
+    """Add a new data source."""
+    try:
+        import quidclaw.core.sources.agentmail  # noqa: F401 — registers provider
+    except ImportError:
+        pass
+    from quidclaw.core.sources.registry import create_source
+    config = get_config()
+    source_config = {"provider": provider, "enabled": True}
+    if api_key:
+        source_config["api_key"] = api_key
+    if inbox_id:
+        source_config["inbox_id"] = inbox_id
+    if username:
+        source_config["username"] = username
+    if display_name:
+        source_config["display_name"] = display_name
+
+    try:
+        source = create_source(name, source_config, config)
+        source_config = source.provision()
+    except ImportError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+    config.add_source(name, source_config)
+    config.source_dir(name).mkdir(parents=True, exist_ok=True)
+
+    inbox = source_config.get("inbox_id", "")
+    click.echo(f"Added source '{name}' (provider: {provider})")
+    if inbox:
+        click.echo(f"  Inbox: {inbox}")
+
+
+@main.command("list-sources")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+def list_sources(as_json):
+    """List configured data sources."""
+    config = get_config()
+    sources = config.get_sources()
+    if as_json:
+        click.echo(json.dumps(sources, indent=2, default=str))
+    else:
+        if not sources:
+            click.echo("No data sources configured.")
+            return
+        for name, src in sources.items():
+            enabled = src.get("enabled", True)
+            status_str = "enabled" if enabled else "disabled"
+            click.echo(f"  {name}: {src['provider']} ({status_str})")
+            if src.get("inbox_id"):
+                click.echo(f"    inbox: {src['inbox_id']}")
+
+
+@main.command("remove-source")
+@click.argument("name")
+@click.option("--confirm", is_flag=True, help="Confirm removal")
+def remove_source(name, confirm):
+    """Remove a data source configuration."""
+    if not confirm:
+        click.echo("Error: Use --confirm to remove a source.", err=True)
+        sys.exit(1)
+    config = get_config()
+    try:
+        config.remove_source(name)
+    except KeyError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+    data_dir = config.source_dir(name)
+    click.echo(f"Removed source '{name}' from config.")
+    if data_dir.exists():
+        click.echo(f"  Synced data preserved at: {data_dir}")
+        click.echo(f"  Delete manually if no longer needed.")
+
+
+@main.command("sync")
+@click.argument("source_name", required=False)
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+def sync(source_name, as_json):
+    """Sync data from external sources."""
+    try:
+        import quidclaw.core.sources.agentmail  # noqa: F401 — registers provider
+    except ImportError:
+        pass
+    from quidclaw.core.sources.registry import create_source
+    config = get_config()
+    sources = config.get_sources()
+
+    if not sources:
+        click.echo("No data sources configured. Use 'quidclaw add-source' first.")
+        sys.exit(1)
+
+    if source_name:
+        src_config = config.get_source(source_name)
+        if not src_config:
+            click.echo(f"Error: Source '{source_name}' not found.", err=True)
+            sys.exit(1)
+        to_sync = {source_name: src_config}
+    else:
+        to_sync = {n: s for n, s in sources.items() if s.get("enabled", True)}
+
+    all_results = []
+    for name, src_config in to_sync.items():
+        source = create_source(name, src_config, config)
+        result = source.sync()
+        all_results.append(result)
+        if not as_json:
+            if result.items_fetched > 0:
+                click.echo(f"  {name}: {result.items_fetched} new item(s)")
+            else:
+                click.echo(f"  {name}: up to date")
+            for err in result.errors:
+                click.echo(f"    ERROR: {err}", err=True)
+
+    if as_json:
+        output = [
+            {
+                "source_name": r.source_name,
+                "provider": r.provider,
+                "items_fetched": r.items_fetched,
+                "items_stored": r.items_stored,
+                "last_sync": r.last_sync.isoformat() if r.last_sync else None,
+                "errors": r.errors,
+            }
+            for r in all_results
+        ]
+        click.echo(json.dumps(output, indent=2))
+
+    has_errors = any(r.errors for r in all_results)
+    has_items = any(r.items_fetched > 0 for r in all_results)
+    if has_errors and not has_items:
+        sys.exit(1)
+
+
+@main.command("mark-processed")
+@click.argument("source_name")
+@click.argument("email_dir")
+def mark_processed(source_name, email_dir):
+    """Mark an email as processed."""
+    config = get_config()
+    import yaml as _yaml
+    email_path = config.source_dir(source_name) / email_dir
+    envelope_file = email_path / "envelope.yaml"
+    if not envelope_file.exists():
+        click.echo(f"Error: envelope.yaml not found at {envelope_file}", err=True)
+        sys.exit(1)
+    envelope = _yaml.safe_load(envelope_file.read_text())
+    envelope["status"] = "processed"
+    envelope_file.write_text(
+        _yaml.dump(envelope, default_flow_style=False, allow_unicode=True)
+    )
+    click.echo(f"Marked {email_dir} as processed")
+
+
 @main.command("fetch-prices")
 @click.argument("commodities", nargs=-1)
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")

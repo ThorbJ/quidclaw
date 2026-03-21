@@ -359,3 +359,92 @@ class TestQuery:
         data = json.loads(result.output)
         assert isinstance(data, list)
         assert any("Expenses:Food" in row.get("account", "") for row in data)
+
+
+# --- Sources ---
+
+
+class TestSources:
+    def test_list_sources_empty(self, tmp_path):
+        runner = _init_project(tmp_path)
+        result = runner.invoke(
+            main, ["list-sources"], catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        assert "No data sources configured" in result.output
+
+    def test_list_sources_json_empty(self, tmp_path):
+        runner = _init_project(tmp_path)
+        result = runner.invoke(
+            main, ["list-sources", "--json"], catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data == {}
+
+    def test_add_source_creates_config_entry(self, tmp_path):
+        runner = _init_project(tmp_path)
+        result = runner.invoke(
+            main, ["list-sources", "--json"], catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert json.loads(result.output) == {}
+
+    def test_sync_no_sources(self, tmp_path):
+        runner = _init_project(tmp_path)
+        result = runner.invoke(
+            main, ["sync"], catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code != 0
+        assert "No data sources" in result.output
+
+    def test_sync_source_not_found(self, tmp_path):
+        runner = _init_project(tmp_path)
+        result = runner.invoke(
+            main, ["sync", "nonexistent"], catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code != 0
+
+    def test_mark_processed(self, tmp_path):
+        runner = _init_project(tmp_path)
+        import yaml as _yaml
+        email_dir = tmp_path / "sources" / "test" / "2026-03-21_bank"
+        email_dir.mkdir(parents=True)
+        (email_dir / "envelope.yaml").write_text(
+            _yaml.dump({"status": "unprocessed", "message_id": "msg1"})
+        )
+        result = runner.invoke(
+            main, ["mark-processed", "test", "2026-03-21_bank"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        envelope = _yaml.safe_load((email_dir / "envelope.yaml").read_text())
+        assert envelope["status"] == "processed"
+
+    def test_mark_processed_not_found(self, tmp_path):
+        runner = _init_project(tmp_path)
+        result = runner.invoke(
+            main, ["mark-processed", "test", "nonexistent"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code != 0
+
+    def test_remove_source_not_found(self, tmp_path):
+        runner = _init_project(tmp_path)
+        result = runner.invoke(
+            main, ["remove-source", "nonexistent", "--confirm"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code != 0
+
+    def test_remove_source_requires_confirm(self, tmp_path):
+        runner = _init_project(tmp_path)
+        import yaml as _yaml
+        config_file = tmp_path / ".quidclaw" / "config.yaml"
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        config_file.write_text(_yaml.dump({"data_sources": {"test": {"provider": "fake"}}}))
+        result = runner.invoke(
+            main, ["remove-source", "test"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code != 0
+        assert "confirm" in result.output.lower() or "Missing" in result.output
