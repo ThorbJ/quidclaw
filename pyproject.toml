@@ -21,6 +21,7 @@ classifiers = [
 ]
 dependencies = [
     "beancount>=3.0.0",
+    "beanprice>=2.0.0",
     "beanquery>=0.1.0",
     "click>=8.0",
     "pyyaml>=6.0",
@@ -32,7 +33,6 @@ Repository = "https://github.com/ThorbJ/quidclaw"
 Issues = "https://github.com/ThorbJ/quidclaw/issues"
 
 [project.optional-dependencies]
-prices = ["beanprice>=0.1.0"]
 dev = [
     "pytest>=8.0",
 ]
