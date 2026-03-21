@@ -87,3 +87,36 @@ class QuidClawConfig:
 
     def month_bean(self, year: int, month: int) -> Path:
         return self.year_dir(year) / f"{year}-{month:02d}.bean"
+
+    @property
+    def sources_dir(self) -> Path:
+        return self.data_dir / "sources"
+
+    @property
+    def logs_dir(self) -> Path:
+        return self.data_dir / "logs"
+
+    def source_dir(self, source_name: str) -> Path:
+        return self.sources_dir / source_name
+
+    def source_state_file(self, source_name: str) -> Path:
+        return self.source_dir(source_name) / ".state.yaml"
+
+    def get_sources(self) -> dict:
+        return self.load_settings().get("data_sources", {})
+
+    def get_source(self, name: str) -> dict | None:
+        return self.get_sources().get(name)
+
+    def add_source(self, name: str, source_config: dict) -> None:
+        settings = self.load_settings()
+        settings.setdefault("data_sources", {})[name] = source_config
+        self.save_settings(settings)
+
+    def remove_source(self, name: str) -> None:
+        settings = self.load_settings()
+        sources = settings.get("data_sources", {})
+        if name not in sources:
+            raise KeyError(f"Source not found: {name}")
+        del sources[name]
+        self.save_settings(settings)
