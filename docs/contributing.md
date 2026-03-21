@@ -30,3 +30,40 @@ def my_command(arg, as_json):
 2. Workflow instructions should use CLI commands (via Bash) for Beancount operations
 3. Use native AI tools (Read, Write, Glob, Grep) for file operations — never reference MCP tools
 4. Reference the new workflow in `_generate_claude_md()` so users know it exists
+
+## How to Add a New Data Source Provider
+
+1. Create `src/quidclaw/core/sources/<provider>.py`
+2. Subclass `DataSource` from `core/sources/base.py`
+3. Implement `provider_name()`, `sync()`, `status()`, and optionally `provision()`
+4. Use `@register_provider` decorator from `core/sources/registry.py`
+5. Add tests in `tests/core/test_<provider>.py`
+6. If the provider needs an external SDK, add it as an optional dependency in `pyproject.toml`
+
+Pattern:
+```python
+from quidclaw.core.sources.base import DataSource, SyncResult
+from quidclaw.core.sources.registry import register_provider
+
+@register_provider
+class MySource(DataSource):
+    @staticmethod
+    def provider_name() -> str:
+        return "my-provider"
+
+    def sync(self) -> SyncResult:
+        # Pull data from external source
+        # Store in self.config.source_dir(self.source_name)
+        # Return SyncResult with items_fetched, items_stored, errors
+        ...
+
+    def status(self) -> dict:
+        # Return {"last_sync": ..., "total_synced": ..., "unprocessed": ...}
+        ...
+```
+
+Key rules:
+- `sync()` must be idempotent — calling it twice must not duplicate data
+- Store synced data in `sources/{source_name}/` as complete information packages
+- External SDK imports must be lazy (inside methods, not at module level)
+- The provider is registered automatically via the `@register_provider` decorator

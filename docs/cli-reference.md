@@ -2,39 +2,53 @@
 
 All commands support `--help`. Most support `--json` for structured AI-friendly output.
 
-## Setup (2)
+## Setup & Config (5)
 
 | Command | Purpose |
 |---------|---------|
-| `quidclaw init` | Initialize a new financial project (`--no-template` to skip default accounts) |
-| `quidclaw upgrade` | Upgrade workflow files and CLAUDE.md to latest version |
+| `quidclaw init` | Initialize a new financial project in the current directory |
+| `quidclaw upgrade` | Upgrade workflow files and instruction files to latest version |
+| `quidclaw set-config KEY VALUE` | Set a configuration value |
+| `quidclaw get-config [KEY]` | Get configuration values (`--json`) |
+| `quidclaw setup` | Create default accounts using configured operating currency |
 
-## Ledger Operations (7)
-
-| Command | Purpose |
-|---------|---------|
-| `quidclaw add-account NAME` | Open a new account |
-| `quidclaw close-account NAME` | Close an account |
-| `quidclaw list-accounts` | List all accounts (filter with `--type`) |
-| `quidclaw add-txn` | Record a transaction (requires `--date`, `--payee`, `--posting`) |
-| `quidclaw balance` | Query account balances (filter with `--account`) |
-| `quidclaw balance-check ACCT AMT` | Reconciliation: assert an account balance (`--currency`) |
-| `quidclaw fetch-prices [COMMODITIES...]` | Fetch and record asset prices *(not yet implemented)* |
-
-## Reports & Queries (6)
+## Ledger Operations (8)
 
 | Command | Purpose |
 |---------|---------|
-| `quidclaw query "SELECT ..."` | Execute a BQL query |
-| `quidclaw report income\|balance_sheet` | Generate a financial report |
-| `quidclaw monthly-summary YYYY MM` | Income, expenses, and savings for a month |
-| `quidclaw spending-by-category YYYY MM` | Ranked category breakdown for a month |
-| `quidclaw month-comparison YYYY MM` | Month-over-month comparison with percentages |
-| `quidclaw largest-txns YYYY MM` | Top N largest expense transactions |
+| `quidclaw add-account NAME` | Open a new account (`--currencies`, `--date`) |
+| `quidclaw close-account NAME` | Close an account (`--date`) |
+| `quidclaw list-accounts` | List all accounts (`--type` to filter, `--json`) |
+| `quidclaw add-txn` | Record a transaction (`--date`, `--payee`, `--posting`; use `--meta` for source traceability) |
+| `quidclaw balance` | Query account balances (`--account` to filter, `--json`) |
+| `quidclaw balance-check ACCOUNT EXPECTED` | Reconciliation: assert an account balance (`--currency`) |
+| `quidclaw query BQL` | Execute a BQL query (`--json`) |
+| `quidclaw report income\|balance_sheet` | Generate a financial report (`--period`) |
 
-## Data & Anomalies (2)
+## Reports & Analysis (5)
 
 | Command | Purpose |
 |---------|---------|
-| `quidclaw detect-anomalies` | Run all anomaly checks (duplicates, outliers, subscriptions, unknown merchants) |
-| `quidclaw data-status` | Data freshness: inbox count, last ledger update |
+| `quidclaw monthly-summary YEAR MONTH` | Income, expenses, and savings for a month (`--json`) |
+| `quidclaw spending-by-category YEAR MONTH` | Ranked category breakdown for a month (`--json`) |
+| `quidclaw month-comparison YEAR MONTH` | Month-over-month comparison with percentages (`--json`) |
+| `quidclaw largest-txns YEAR MONTH` | Top N largest expense transactions (`--limit`, `--json`) |
+| `quidclaw detect-anomalies` | Run all anomaly checks (`--json`) |
+
+## Data Sources (5)
+
+| Command | Purpose |
+|---------|---------|
+| `quidclaw add-source NAME` | Add a new data source (`--provider`, `--api-key`, `--inbox-id`, `--username`, `--display-name`) |
+| `quidclaw list-sources` | List configured data sources (`--json`) |
+| `quidclaw remove-source NAME` | Remove a data source configuration (`--confirm`) |
+| `quidclaw sync [SOURCE_NAME]` | Sync data from external sources; omit name to sync all (`--json`) |
+| `quidclaw mark-processed SOURCE_NAME EMAIL_DIR` | Mark an email as processed |
+
+## Data Management (3)
+
+| Command | Purpose |
+|---------|---------|
+| `quidclaw data-status` | Data freshness: inbox count, last ledger update, and source sync status (`--json`) |
+| `quidclaw add-commodity NAME` | Register a commodity (stock, fund, custom asset) for price tracking (`--source`, `--quote`, `--date`) |
+| `quidclaw fetch-prices [COMMODITIES...]` | Fetch and record asset prices from configured sources (`--json`) |
