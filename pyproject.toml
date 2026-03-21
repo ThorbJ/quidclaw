@@ -36,6 +36,9 @@ Issues = "https://github.com/ThorbJ/quidclaw/issues"
 dev = [
     "pytest>=8.0",
 ]
+email = [
+    "agentmail",
+]
 
 [project.scripts]
 quidclaw = "quidclaw.cli:main"
