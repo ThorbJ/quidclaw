@@ -201,7 +201,8 @@ def list_accounts(account_type, as_json):
 @click.option("--payee", required=True, help="Payee name")
 @click.option("--narration", default="", help="Description")
 @click.option("--posting", multiple=True, required=True, help='Posting as JSON: \'{"account":"...", "amount":"...", "currency":"..."}\'')
-def add_txn(date, payee, narration, posting):
+@click.option("--meta", default=None, help='Metadata as JSON: \'{"source":"..."}\'')
+def add_txn(date, payee, narration, posting, meta):
     """Record a transaction."""
     import datetime as dt
     from quidclaw.core.transactions import TransactionManager
@@ -209,7 +210,8 @@ def add_txn(date, payee, narration, posting):
     mgr = TransactionManager(ledger)
     postings = [json.loads(p) for p in posting]
     parsed_date = dt.date.fromisoformat(date)
-    mgr.add_transaction(parsed_date, payee, narration, postings)
+    metadata = json.loads(meta) if meta else None
+    mgr.add_transaction(parsed_date, payee, narration, postings, metadata)
     click.echo(f"Recorded transaction: {date} {payee}")
 
 

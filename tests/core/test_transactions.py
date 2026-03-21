@@ -82,3 +82,45 @@ def test_add_transaction_with_credit_card(tmp_path):
     )
     entries, errors, _ = ledger.load()
     assert len(errors) == 0
+
+
+def test_add_transaction_with_metadata(tmp_path):
+    ledger = make_ledger_with_accounts(tmp_path)
+    txn = TransactionManager(ledger)
+    txn.add_transaction(
+        date=datetime.date(2026, 3, 14),
+        payee="McDonald's",
+        narration="Lunch",
+        postings=[
+            {"account": "Expenses:Food", "amount": "45.00", "currency": "CNY"},
+            {"account": "Assets:Bank:BOC", "amount": "-45.00", "currency": "CNY"},
+        ],
+        metadata={"source": "email:my-email/test", "import-id": "evt_123"},
+    )
+    month_file = ledger.config.month_bean(2026, 3)
+    content = month_file.read_text()
+    assert 'source: "email:my-email/test"' in content
+    assert 'import-id: "evt_123"' in content
+    entries, errors, _ = ledger.load()
+    assert len(errors) == 0
+    txns = [e for e in entries if e.__class__.__name__ == "Transaction"]
+    assert len(txns) == 1
+
+
+def test_add_transaction_without_metadata_unchanged(tmp_path):
+    ledger = make_ledger_with_accounts(tmp_path)
+    txn = TransactionManager(ledger)
+    txn.add_transaction(
+        date=datetime.date(2026, 3, 14),
+        payee="Test",
+        narration="No meta",
+        postings=[
+            {"account": "Expenses:Food", "amount": "10.00", "currency": "CNY"},
+            {"account": "Assets:Bank:BOC"},
+        ],
+    )
+    month_file = ledger.config.month_bean(2026, 3)
+    content = month_file.read_text()
+    assert "source:" not in content
+    entries, errors, _ = ledger.load()
+    assert len(errors) == 0

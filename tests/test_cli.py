@@ -252,6 +252,29 @@ class TestTransactions:
         assert "Restaurant" in content
         assert "Lunch" in content
 
+    def test_add_transaction_with_meta(self, tmp_path):
+        runner = _init_project(tmp_path)
+        posting1 = json.dumps({"account": "Expenses:Food", "amount": "50", "currency": "CNY"})
+        posting2 = json.dumps({"account": "Assets:Bank:Checking", "amount": "-50", "currency": "CNY"})
+        meta = json.dumps({"source": "test-source", "import-id": "evt_test"})
+        result = runner.invoke(
+            main, [
+                "add-txn",
+                "--date", "2026-03-15",
+                "--payee", "Restaurant",
+                "--narration", "Lunch",
+                "--posting", posting1,
+                "--posting", posting2,
+                "--meta", meta,
+            ],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        txn_file = tmp_path / "ledger" / "2026" / "2026-03.bean"
+        content = txn_file.read_text()
+        assert 'source: "test-source"' in content
+        assert 'import-id: "evt_test"' in content
+
 
 # --- Balance ---
 
