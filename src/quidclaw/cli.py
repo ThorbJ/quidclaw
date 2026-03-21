@@ -76,6 +76,10 @@ def upgrade():
             shutil.copy2(f, target_dir / f.name)
         click.echo(f"Updated workflows in {target_dir}")
 
+    if config.main_bean.exists():
+        ledger = Ledger(config)
+        ledger.ensure_dirs()
+
     _generate_claude_md(config)
     click.echo("Updated CLAUDE.md")
     click.echo("Upgrade complete.")
@@ -391,6 +395,8 @@ def data_status(as_json):
     config = get_config()
     mgr = InboxManager(config)
     status = mgr.get_data_status()
+    status["sources"] = mgr.get_source_status()
+
     if as_json:
         click.echo(json.dumps(status, indent=2, default=str))
     else:
@@ -398,6 +404,12 @@ def data_status(as_json):
         for f in status.get('inbox_files', []):
             click.echo(f"  - {f}")
         click.echo(f"Last modified: {status.get('last_modified', 'N/A')}")
+        source_status = status.get("sources", {})
+        if source_status:
+            click.echo("\nData sources:")
+            for name, info in source_status.items():
+                last = info.get("last_sync") or "never"
+                click.echo(f"  {name} ({info['provider']}): last sync {last}")
 
 
 @main.command("add-commodity")
@@ -638,6 +650,8 @@ When you start a conversation, check:
 - `documents/` — Organized archive (by year/month)
 - `notes/` — Financial knowledge base (living documents + append-only logs)
 - `reports/` — Generated reports
+- `sources/` — Synced data from external sources (email, APIs)
+- `logs/` — Processing audit trail
 
 ## Available CLI Commands
 
@@ -674,6 +688,13 @@ quidclaw data-status                 # Inbox count, last ledger update
 # Price Tracking
 quidclaw add-commodity NAME --source SOURCE --quote CURRENCY  # Register price source
 quidclaw fetch-prices [COMMODITY...] # Fetch prices for registered commodities
+
+# Data Sources
+quidclaw add-source NAME --provider PROVIDER [--api-key KEY]  # Add data source
+quidclaw list-sources                    # List configured sources
+quidclaw remove-source NAME --confirm    # Remove a data source
+quidclaw sync [SOURCE]                   # Sync from external sources
+quidclaw mark-processed SOURCE DIR       # Mark email as processed
 ```
 
 ### Price Tracking
@@ -693,6 +714,14 @@ quidclaw add-commodity 600519 --source yahoo/600519.SS --quote CNY
 ```
 
 Then `quidclaw fetch-prices` will fetch all registered prices automatically.
+
+### Source Traceability
+
+When recording transactions from imported files or emails, include source metadata:
+```
+quidclaw add-txn ... --meta '{{"source":"email:source-name/email-dir","import-id":"evt_ID"}}'
+```
+This enables tracing any transaction back to its source document.
 
 Most commands support `--json` for structured output.
 
@@ -715,6 +744,8 @@ Read `.quidclaw/workflows/<name>.md` for detailed workflow instructions:
 - `detect-anomalies.md` — Scan for suspicious patterns
 - `organize-documents.md` — Sort inbox files into documents/
 - `financial-memory.md` — Capture non-transaction financial info
+- `check-email.md` — Check and process email sources
+- `daily-routine.md` — Run daily financial routine
 
 ## Notes Structure
 

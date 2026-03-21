@@ -35,6 +35,23 @@ class InboxManager:
         shutil.move(str(src), str(dest))
         return dest
 
+    def get_source_status(self) -> dict:
+        """Return status for all configured data sources."""
+        import yaml as _yaml
+        sources = self.config.get_sources()
+        result = {}
+        for name, src_config in sources.items():
+            state_file = self.config.source_state_file(name)
+            state = {}
+            if state_file.exists():
+                state = _yaml.safe_load(state_file.read_text()) or {}
+            result[name] = {
+                "provider": src_config.get("provider"),
+                "last_sync": state.get("last_sync"),
+                "total_synced": state.get("total_synced", 0),
+            }
+        return result
+
     def get_data_status(self) -> dict:
         """Return data status: inbox count, last ledger modification time."""
         inbox_files = self.list_files()

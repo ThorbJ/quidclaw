@@ -166,6 +166,21 @@ class TestDataStatus:
         # After init, there should be a last_modified value (not N/A)
         assert "N/A" not in result.output
 
+    def test_data_status_includes_sources(self, tmp_path):
+        runner = _init_project(tmp_path)
+        import yaml as _yaml
+        config_file = tmp_path / ".quidclaw" / "config.yaml"
+        settings = _yaml.safe_load(config_file.read_text()) if config_file.exists() else {}
+        settings["data_sources"] = {"test": {"provider": "agentmail", "inbox_id": "test@agentmail.to", "enabled": True}}
+        config_file.write_text(_yaml.dump(settings))
+
+        result = runner.invoke(
+            main, ["data-status", "--json"], catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "sources" in data
+
 
 # --- Accounts ---
 
