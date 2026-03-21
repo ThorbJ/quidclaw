@@ -48,6 +48,29 @@ def test_init_creates_all_directories(tmp_path):
     assert (tmp_path / "documents").is_dir()
     assert (tmp_path / "notes").is_dir()
     assert (tmp_path / "reports").is_dir()
+    assert (tmp_path / "sources").is_dir()
+    assert (tmp_path / "logs").is_dir()
+
+
+def test_init_creates_sources_and_logs_directories(tmp_path):
+    config = QuidClawConfig(data_dir=tmp_path)
+    ledger = Ledger(config)
+    ledger.init()
+    assert (tmp_path / "sources").is_dir()
+    assert (tmp_path / "logs").is_dir()
+
+
+def test_ensure_dirs_creates_missing_directories(tmp_path):
+    config = QuidClawConfig(data_dir=tmp_path)
+    ledger = Ledger(config)
+    ledger.init()
+    import shutil
+    shutil.rmtree(tmp_path / "sources")
+    shutil.rmtree(tmp_path / "logs")
+    assert not (tmp_path / "sources").exists()
+    ledger.ensure_dirs()
+    assert (tmp_path / "sources").is_dir()
+    assert (tmp_path / "logs").is_dir()
 
 
 def test_load_after_append(tmp_path):

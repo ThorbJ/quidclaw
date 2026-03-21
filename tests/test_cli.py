@@ -31,6 +31,8 @@ class TestInit:
         assert (tmp_path / "inbox").is_dir()
         assert (tmp_path / "documents").is_dir()
         assert (tmp_path / "notes").is_dir()
+        assert (tmp_path / "sources").is_dir()
+        assert (tmp_path / "logs").is_dir()
 
     def test_creates_empty_accounts_file(self, tmp_path):
         _init_project(tmp_path)

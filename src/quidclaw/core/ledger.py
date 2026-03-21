@@ -15,6 +15,8 @@ class Ledger:
         self.config.documents_dir.mkdir(exist_ok=True)
         self.config.notes_dir.mkdir(exist_ok=True)
         self.config.reports_dir.mkdir(exist_ok=True)
+        self.config.sources_dir.mkdir(exist_ok=True)
+        self.config.logs_dir.mkdir(exist_ok=True)
 
         if not self.config.accounts_bean.exists():
             self.config.accounts_bean.write_text("")
@@ -33,6 +35,14 @@ class Ledger:
                 'include "prices.bean"\n'
             )
             self.config.main_bean.write_text(lines)
+
+    def ensure_dirs(self) -> None:
+        """Ensure all expected directories exist. Used by upgrade for older projects."""
+        for d in [self.config.ledger_dir, self.config.inbox_dir,
+                  self.config.documents_dir, self.config.notes_dir,
+                  self.config.reports_dir, self.config.sources_dir,
+                  self.config.logs_dir]:
+            d.mkdir(parents=True, exist_ok=True)
 
     def load(self):
         """Load and parse the entire ledger. Returns (entries, errors, options)."""
