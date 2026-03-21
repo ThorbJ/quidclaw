@@ -38,6 +38,14 @@ See `docs/cli-reference.md` for the full command list.
 - Account names: Beancount format, colon-separated, starting with Assets/Liabilities/Income/Expenses/Equity
 - Account naming: use last 4 digits or identifiers (e.g., `Assets:Bank:CMB:1234`)
 
+## Architectural Constraints
+
+These are non-negotiable. Any feature proposal that violates these is wrong.
+
+- **Local-first, no server**: QuidClaw runs entirely on the user's machine. No backend, no cloud service, no public endpoints. All external data is acquired by pulling (polling/sync), never by receiving pushes (webhooks, callbacks). If a feature requires a server to receive inbound requests, it does not belong in QuidClaw.
+- **AI is the intelligence layer**: Parsing, understanding, and interpreting documents (PDFs, images, CSVs, emails) is the AI's job via workflows. The CLI/core layer does NOT parse or interpret financial documents — it only performs deterministic operations (accounting math, file I/O, API calls for data retrieval). Never duplicate AI capabilities in the CLI layer.
+- **CLI = data movement + accounting operations**: The CLI moves data between systems (sync from email, fetch prices) and performs structured accounting operations (add transactions, query balances). It does not make decisions about what data means.
+
 ## Adding Features
 
 See `docs/contributing.md` for how to add new CLI commands and workflows.

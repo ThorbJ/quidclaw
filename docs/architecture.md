@@ -255,3 +255,32 @@ Like git, QuidClaw treats the current directory as the project root. This means:
 - No global config file to manage
 - Multiple financial projects can coexist (personal, business, etc.)
 - The entire project is portable and version-controllable
+
+### Layer boundary: what belongs where?
+
+The two-layer architecture has a clear division of responsibility:
+
+**CLI/Core layer** (deterministic, testable without AI):
+- Accounting operations: add transactions, query balances, generate reports
+- Data movement: sync emails, fetch prices, manage files
+- Configuration: manage settings, data sources, directory structure
+
+**AI layer** (intelligent, requires understanding):
+- Parsing and interpreting documents (PDFs, CSVs, images, emails)
+- Deciding how to categorize transactions
+- Interacting with the user (onboarding, confirmations, explanations)
+- Orchestrating multi-step workflows
+
+**Rule of thumb**: if it requires understanding what data *means*, it belongs in the AI layer. If it's moving data or doing math, it belongs in CLI/Core.
+
+Never duplicate AI capabilities in the CLI layer. For example, don't add PDF parsing to the CLI — the AI reads PDFs natively. Don't add transaction categorization logic — the AI decides categories based on context.
+
+### Local-first: no server components
+
+QuidClaw runs entirely on the user's machine. There is no backend service, no cloud component, no public endpoint. This is a deliberate architectural choice:
+
+- **Data sovereignty**: Financial data stays on the user's device
+- **Zero infrastructure**: Users don't need to deploy or maintain anything
+- **Offline capable**: Core operations work without internet
+
+Consequence: all external data acquisition is **pull-based** (the CLI polls/syncs from external services). Push-based patterns (webhooks, callbacks, server-sent events) require a publicly accessible endpoint and are therefore incompatible with QuidClaw's architecture.
