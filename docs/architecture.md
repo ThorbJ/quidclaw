@@ -22,7 +22,7 @@ QuidClaw follows a strict two-layer separation:
 │                     CLI Adapter                          │
 │                  src/quidclaw/cli.py                     │
 │                                                          │
-│  Click command group (17 commands)                       │
+│  Click command group (26 commands)                       │
 │  Parses arguments ──► Calls core ──► Formats output      │
 │  Supports --json for structured output                   │
 │  No business logic here                                  │
@@ -36,7 +36,8 @@ QuidClaw follows a strict two-layer separation:
 │  AccountManager    TransactionManager    BalanceManager  │
 │  ReportManager     AnomalyDetector       InboxManager    │
 │  NotesManager      PriceManager          LedgerInitializer│
-│  Ledger                                                  │
+│  Ledger            DataSource            AuditLogger     │
+│  sources/: DataSource, AgentMailSource, registry        │
 │                                                          │
 │  Pure business logic. Depends on Beancount, NOT on CLI.  │
 └────────────────────────┬─────────────────────────────────┘
@@ -68,6 +69,10 @@ Pure Python business logic. Each module has a single responsibility:
 | `notes.py` | `NotesManager` | Knowledge base CRUD, search, tags |
 | `prices.py` | `PriceManager` | Price directives |
 | `init.py` | `LedgerInitializer` | Default account templates |
+| `sources/base.py` | `DataSource` | Abstract base class for all data sources |
+| `sources/registry.py` | — | Provider registration, factory, env: resolution |
+| `sources/agentmail.py` | `AgentMailSource` | AgentMail email sync provider |
+| `logs.py` | `AuditLogger` | Processing event audit trail |
 
 **Dependency convention:**
 - Classes that operate on **ledger data** take a `Ledger` instance in their constructor
@@ -170,14 +175,16 @@ QuidClaw uses a directory-as-project model (like git). The data directory is the
 my-finances/                       # Data directory root
 ├── CLAUDE.md                      # AI instruction file (generated)
 ├── .quidclaw/
-│   └── workflows/                 # AI workflow guides (7 files)
+│   └── workflows/                 # AI workflow guides (9 files)
 │       ├── onboarding.md          #   New user interview
 │       ├── import-bills.md        #   Parse and import documents
 │       ├── reconcile.md           #   Verify data accuracy
 │       ├── monthly-review.md      #   Monthly financial analysis
 │       ├── detect-anomalies.md    #   Suspicious pattern scan
 │       ├── organize-documents.md  #   Sort inbox into documents/
-│       └── financial-memory.md    #   Capture non-transaction info
+│       ├── financial-memory.md    #   Capture non-transaction info
+│       ├── check-email.md         #   Process synced emails
+│       └── daily-routine.md       #   Daily financial check-in
 │
 ├── ledger/                        # Beancount ledger (structured data)
 │   ├── main.bean                  #   Root file, includes everything
@@ -198,10 +205,49 @@ my-finances/                       # Data directory root
 │   ├── subscriptions/             #   Living: recurring charges
 │   ├── decisions/                 #   Append-only: decision log
 │   └── journal/                   #   Append-only: conversation captures
+├── sources/                       # Synced external data (AI-managed)
+│   └── my-email/                  #   Per-source directory
+│       └── {timestamp}_{sender}/  #   Per-message bundle
+│           ├── envelope.yaml      #     Metadata + processing status
+│           ├── body.txt           #     Email body
+│           └── attachments/       #     Attached files
+├── logs/                          # Audit trail (append-only)
+│   └── YYYY-MM-DD.jsonl           #   Processing events per day
 └── reports/                       # Generated reports (AI-managed)
 ```
 
 **Key distinction:** The `ledger/` directory contains only verified, evidence-based data (from bank statements, receipts). The `notes/` directory contains AI-managed knowledge that may be approximate or conversational.
+
+## Email Sync Collaboration Flow
+
+The email sync path uses the data sources subsystem and audit logger:
+
+```
+1. User configures email source during onboarding
+
+2. quidclaw sync → AgentMailSource.sync()
+   └── Fetches new emails from AgentMail API
+
+3. Emails stored in sources/my-email/{timestamp}_{sender}/
+   ├── envelope.yaml   (metadata, status: unprocessed)
+   ├── body.txt
+   └── attachments/
+
+4. AI reads .quidclaw/workflows/check-email.md
+   └── Gets step-by-step instructions for email processing
+
+5. AI processes each email:
+   └── Reads envelope.yaml + body.txt + attachments/
+
+6. quidclaw add-txn --meta '{"source":"email:..."}' (×N)
+   └── Transactions recorded with source provenance
+
+7. quidclaw mark-processed → envelope.yaml status updated
+   └── Prevents duplicate processing on next sync
+
+8. Audit log written to logs/
+   └── AuditLogger appends event to YYYY-MM-DD.jsonl
+```
 
 ## Testing Architecture
 
