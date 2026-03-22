@@ -46,27 +46,31 @@ Each platform generates only the files it needs. No platform generates files for
 | CLAUDE.md | — | Yes | — | — |
 | GEMINI.md | — | — | Yes | — |
 | .quidclaw/workflows/ | Yes | Yes | Yes | Yes |
-| Git backup | Auto-enabled | Onboarding decides | Onboarding decides | Onboarding decides |
+| notes/pending/ | Yes (created by init) | Yes (created by init) | Yes (created by init) | Yes (created by init) |
+| Git backup | Auto-enabled (init runs `backup init` without asking) | Onboarding decides | Onboarding decides | Onboarding decides |
 
-### 1.3 Dependency Auto-Install
+### 1.3 Dependency Detection and Install Assistance
 
-When a required dependency is missing, attempt automatic installation instead of failing.
+When a required dependency is missing, detect it, attempt to install it, and fall back to showing the user the exact install command if auto-install fails.
 
 **Dependencies:**
 - `git` — required for backup (all platforms when backup enabled, always for OpenClaw)
 - `git-lfs` — optional, improves binary file storage
 - `openclaw` — required for `--platform openclaw`
 
-**Install strategy:**
-- macOS: try `brew install <pkg>` first
-- Linux: try `apt-get install -y <pkg>`, fallback to `yum install -y <pkg>`
-- If auto-install fails: print the exact command and continue (don't block init)
+**Strategy:**
+1. Check if binary is on PATH
+2. If missing, attempt install:
+   - macOS: try `brew install <pkg>`
+   - Linux: try `apt-get install -y <pkg>` (may need sudo), fallback to `yum install -y <pkg>`
+3. If auto-install fails (no brew, no sudo, etc.): print the exact command for the user/AI to run manually, and continue with init (don't block)
+4. For optional dependencies (git-lfs): note as recommendation, never block
 
-**Implementation:** Add a `ensure_dependency(name, brew_pkg, apt_pkg)` helper in `core/backup.py` or a new `core/deps.py` module.
+**Implementation:** Add a `check_and_install(name, brew_pkg, apt_pkg)` helper in a new `core/deps.py` module. This module handles detection and install attempts. The CLI calls it; the logic lives in core.
 
 ### 1.4 OpenClaw Agent Creation
 
-When platform is `openclaw`, after creating the data directory and files:
+When platform is `openclaw`, after creating the data directory and files, a core module (`core/openclaw.py`) handles agent setup:
 
 1. Run `openclaw agents add quidclaw --workspace <data_dir>`
 2. Set identity: `openclaw agents set-identity --agent quidclaw --name "QuidClaw" --emoji "💰"`
@@ -78,11 +82,17 @@ When platform is `openclaw`, after creating the data directory and files:
    Run 'openclaw agents bindings' to see available channels.
    ```
 
-### 1.5 Backward Compatibility
+**Architecture note:** The OpenClaw agent creation logic lives in `core/openclaw.py`, not in the CLI layer. The CLI calls `OpenClawSetup(config).create_agent()`. This keeps the CLI thin per the project's architecture constraints.
+
+### 1.5 Backward Compatibility and Migration
 
 The existing `quidclaw init` (no args, no `--platform`) shows the interactive prompt. This replaces the old behavior of generating all platform files at once.
 
 `quidclaw upgrade` continues to work — it updates workflows and regenerates instruction files for the platform that was originally selected. The platform choice is stored in `.quidclaw/config.yaml` as `platform: openclaw|claude-code|gemini|codex`.
+
+**Migration for existing users:** When `upgrade` finds no `platform` in config, it defaults to `claude-code` (since that was the only fully-supported platform before this change) and stores the choice. Users can switch platforms via `quidclaw init --platform <new>` which regenerates files and cleans up old platform files.
+
+**"Other" platform:** Interactive option 5 ("Other") maps to `--platform codex` internally. Both generate AGENTS.md + workflows. The stored config value is `codex`.
 
 ## 2. OpenClaw Template Files
 
@@ -119,7 +129,8 @@ the user's complete financial life.
 
 Run these checks. If nothing needs attention, reply HEARTBEAT_OK.
 
-1. Run `quidclaw sync --json` — if new items synced, process them
+1. Run `quidclaw list-sources --json` — if sources exist, run
+   `quidclaw sync --json`. If new items synced, process them
    following `.quidclaw/workflows/check-email.md`
 2. Check `notes/pending/` — if there are pending items that can now
    be resolved, process them
@@ -135,12 +146,15 @@ Run these checks. If nothing needs attention, reply HEARTBEAT_OK.
 
 This is your first time running. Follow these steps:
 
-1. Read `.quidclaw/workflows/onboarding.md` and start the onboarding
+1. Check `.quidclaw/config.yaml` for `bootstrapped: true`. If set, skip
+   and delete this file.
+2. Read `.quidclaw/workflows/onboarding.md` and start the onboarding
    conversation with the user
-2. After onboarding completes, set up automation:
+3. After onboarding completes, set up automation:
    - Configure a cron job for daily routine (ask user preferred time)
    - Configure a cron job for monthly report (1st of each month)
-3. Delete this file when done
+4. Set `bootstrapped: true` in `.quidclaw/config.yaml`
+5. Delete this file
 ```
 
 ### 2.4 IDENTITY.md
@@ -386,7 +400,10 @@ metadata:
 - `README.md` — simplify, add OpenClaw as primary
 - `tests/test_cli.py` — update init tests for platform flag
 
+### New Core Files
+- `src/quidclaw/core/openclaw.py` — OpenClaw agent creation logic
+
 ### Unchanged
 - `src/quidclaw/core/backup.py` — no changes
-- `src/quidclaw/core/*.py` — all core modules unchanged
-- All 31 CLI commands — unchanged
+- All other core modules unchanged
+- All 31 CLI commands unchanged (init and upgrade are modified but not new)
