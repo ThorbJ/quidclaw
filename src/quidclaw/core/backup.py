@@ -177,3 +177,13 @@ class BackupManager:
             self.auto_push()
             return True
         return False
+
+
+def try_backup(config: QuidClawConfig, message: str) -> None:
+    """Attempt git backup if initialized. Never raises."""
+    try:
+        mgr = BackupManager(config)
+        if mgr.is_initialized():
+            mgr.commit_and_push(message)
+    except Exception:
+        pass

@@ -4,7 +4,7 @@ import subprocess
 from unittest.mock import patch
 
 from quidclaw.config import QuidClawConfig
-from quidclaw.core.backup import BackupManager
+from quidclaw.core.backup import BackupManager, try_backup
 
 
 class TestGitDetection:
@@ -237,3 +237,24 @@ class TestInstallInstructions:
         assert "git" in instructions.lower()
 
 
+class TestTryBackup:
+    def test_try_backup_when_initialized(self, tmp_path):
+        config = QuidClawConfig(data_dir=tmp_path)
+        mgr = BackupManager(config)
+        mgr.init()
+        (tmp_path / "ledger").mkdir(exist_ok=True)
+        (tmp_path / "ledger" / "test.bean").write_text("data")
+        try_backup(config, "Test backup")
+        log = subprocess.run(
+            ["git", "log", "--oneline", "-1"],
+            cwd=tmp_path, capture_output=True, text=True,
+        )
+        assert "Test backup" in log.stdout
+
+    def test_try_backup_when_not_initialized(self, tmp_path):
+        config = QuidClawConfig(data_dir=tmp_path)
+        try_backup(config, "Should be fine")  # Should not raise
+
+    def test_try_backup_never_raises(self, tmp_path):
+        config = QuidClawConfig(data_dir=None)
+        try_backup(config, "Should not raise")  # Should not raise
