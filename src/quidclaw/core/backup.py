@@ -88,3 +88,27 @@ class BackupManager:
 
         self._run_git("add", "-A")
         self._run_git("commit", "-m", "Initialize QuidClaw data directory")
+
+    # --- Remote Management ---
+
+    def list_remotes(self) -> list[dict]:
+        if not self.is_initialized():
+            return []
+        result = self._run_git("remote", "-v", check=False)
+        if result.returncode != 0 or not result.stdout.strip():
+            return []
+        remotes = {}
+        for line in result.stdout.strip().splitlines():
+            parts = line.split()
+            if len(parts) >= 2 and parts[0] not in remotes:
+                remotes[parts[0]] = {"name": parts[0], "url": parts[1]}
+        return list(remotes.values())
+
+    def has_remotes(self) -> bool:
+        return len(self.list_remotes()) > 0
+
+    def add_remote(self, name: str, url: str) -> None:
+        self._run_git("remote", "add", name, url)
+
+    def remove_remote(self, name: str) -> None:
+        self._run_git("remote", "remove", name)
