@@ -17,6 +17,7 @@ class Ledger:
         self.config.reports_dir.mkdir(exist_ok=True)
         self.config.sources_dir.mkdir(exist_ok=True)
         self.config.logs_dir.mkdir(exist_ok=True)
+        self.config.pending_dir.mkdir(exist_ok=True)
 
         if not self.config.accounts_bean.exists():
             self.config.accounts_bean.write_text("")
@@ -41,7 +42,7 @@ class Ledger:
         for d in [self.config.ledger_dir, self.config.inbox_dir,
                   self.config.documents_dir, self.config.notes_dir,
                   self.config.reports_dir, self.config.sources_dir,
-                  self.config.logs_dir]:
+                  self.config.logs_dir, self.config.pending_dir]:
             d.mkdir(parents=True, exist_ok=True)
 
     def load(self):

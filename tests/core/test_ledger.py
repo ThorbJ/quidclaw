@@ -50,6 +50,7 @@ def test_init_creates_all_directories(tmp_path):
     assert (tmp_path / "reports").is_dir()
     assert (tmp_path / "sources").is_dir()
     assert (tmp_path / "logs").is_dir()
+    assert (tmp_path / "notes" / "pending").is_dir()
 
 
 def test_init_creates_sources_and_logs_directories(tmp_path):

@@ -94,3 +94,23 @@ class TestBackupConfig:
         config.set_setting("operating_currency", "CNY")
         config.set_backup_setting("enabled", True)
         assert config.get_setting("operating_currency") == "CNY"
+
+
+class TestPlatformConfig:
+    def test_pending_dir_property(self, tmp_path):
+        from quidclaw.config import QuidClawConfig
+        config = QuidClawConfig(data_dir=tmp_path)
+        assert config.pending_dir == tmp_path / "notes" / "pending"
+
+    def test_get_platform_default_none(self, tmp_path):
+        from quidclaw.config import QuidClawConfig
+        config = QuidClawConfig(data_dir=tmp_path)
+        config.config_dir.mkdir(parents=True, exist_ok=True)
+        assert config.get_setting("platform") is None
+
+    def test_set_and_get_platform(self, tmp_path):
+        from quidclaw.config import QuidClawConfig
+        config = QuidClawConfig(data_dir=tmp_path)
+        config.config_dir.mkdir(parents=True, exist_ok=True)
+        config.set_setting("platform", "openclaw")
+        assert config.get_setting("platform") == "openclaw"
