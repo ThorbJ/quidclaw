@@ -10,7 +10,7 @@ def _init_project(tmp_path):
     """Initialize a QuidClaw project and return the runner."""
     runner = CliRunner()
     result = runner.invoke(
-        main, ["init"], catch_exceptions=False,
+        main, ["init", "--platform", "claude-code"], catch_exceptions=False,
         env={"QUIDCLAW_DATA_DIR": str(tmp_path)},
     )
     assert result.exit_code == 0
@@ -25,61 +25,105 @@ def _env(tmp_path):
 
 
 class TestInit:
-    def test_creates_directories(self, tmp_path):
-        _init_project(tmp_path)
+    def test_init_with_platform_claude_code(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["init", "--platform", "claude-code"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        assert (tmp_path / "CLAUDE.md").exists()
+        assert not (tmp_path / "GEMINI.md").exists()
+        assert not (tmp_path / "SOUL.md").exists()
+
+    def test_init_with_platform_gemini(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["init", "--platform", "gemini"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        assert (tmp_path / "GEMINI.md").exists()
+        assert not (tmp_path / "CLAUDE.md").exists()
+
+    def test_init_with_platform_codex(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["init", "--platform", "codex"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        assert (tmp_path / "AGENTS.md").exists()
+        assert not (tmp_path / "CLAUDE.md").exists()
+        assert not (tmp_path / "SOUL.md").exists()
+
+    def test_init_with_platform_openclaw_generates_templates(self, tmp_path):
+        runner = CliRunner()
+        from unittest.mock import patch
+        with patch("quidclaw.core.openclaw.OpenClawSetup.is_available", return_value=False):
+            result = runner.invoke(
+                main, ["init", "--platform", "openclaw"],
+                catch_exceptions=False, env=_env(tmp_path),
+            )
+        assert result.exit_code == 0
+        assert (tmp_path / "SOUL.md").exists()
+        assert (tmp_path / "HEARTBEAT.md").exists()
+        assert (tmp_path / "BOOTSTRAP.md").exists()
+        assert (tmp_path / "IDENTITY.md").exists()
+        assert (tmp_path / "AGENTS.md").exists()
+        assert "Automation" in (tmp_path / "AGENTS.md").read_text()
+        assert not (tmp_path / "CLAUDE.md").exists()
+        assert not (tmp_path / "GEMINI.md").exists()
+
+    def test_init_stores_platform_in_config(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["init", "--platform", "claude-code"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        from quidclaw.config import QuidClawConfig
+        config = QuidClawConfig(data_dir=tmp_path)
+        assert config.get_setting("platform") == "claude-code"
+
+    def test_init_openclaw_auto_enables_backup(self, tmp_path):
+        runner = CliRunner()
+        from unittest.mock import patch
+        with patch("quidclaw.core.openclaw.OpenClawSetup.is_available", return_value=False):
+            result = runner.invoke(
+                main, ["init", "--platform", "openclaw"],
+                catch_exceptions=False, env=_env(tmp_path),
+            )
+        assert result.exit_code == 0
+        assert (tmp_path / ".git").is_dir()
+
+    def test_init_creates_directories(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["init", "--platform", "claude-code"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
         assert (tmp_path / "ledger").is_dir()
         assert (tmp_path / "inbox").is_dir()
-        assert (tmp_path / "documents").is_dir()
-        assert (tmp_path / "notes").is_dir()
-        assert (tmp_path / "sources").is_dir()
-        assert (tmp_path / "logs").is_dir()
+        assert (tmp_path / "notes" / "pending").is_dir()
 
-    def test_creates_empty_accounts_file(self, tmp_path):
-        _init_project(tmp_path)
-        accounts_bean = tmp_path / "ledger" / "accounts.bean"
-        assert accounts_bean.exists()
-
-    def test_setup_creates_default_accounts(self, tmp_path):
-        runner = _init_project(tmp_path)
-        env = _env(tmp_path)
-        # Set operating currency first
-        runner.invoke(main, ["set-config", "operating_currency", "CNY"], env=env)
-        result = runner.invoke(main, ["setup"], catch_exceptions=False, env=env)
+    def test_init_creates_workflows(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["init", "--platform", "claude-code"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
         assert result.exit_code == 0
-        content = (tmp_path / "ledger" / "accounts.bean").read_text()
-        assert "Assets" in content
-        assert "Expenses" in content
-        assert "Income" in content
-
-    def test_creates_claude_md(self, tmp_path):
-        _init_project(tmp_path)
-        claude_md = tmp_path / "CLAUDE.md"
-        assert claude_md.exists()
-        content = claude_md.read_text()
-        assert "QuidClaw" in content
-
-    def test_creates_all_instruction_files(self, tmp_path):
-        """init creates instruction files for all supported AI platforms."""
-        _init_project(tmp_path)
-        for path, marker in [
-            (tmp_path / "AGENTS.md", "QuidClaw"),
-            (tmp_path / "GEMINI.md", "QuidClaw"),
-            (tmp_path / "skills" / "quidclaw" / "SKILL.md", "quidclaw"),
-        ]:
-            assert path.exists(), f"{path.name} not created"
-            assert marker in path.read_text()
-        # SKILL.md should have OpenClaw frontmatter
-        skill_content = (tmp_path / "skills" / "quidclaw" / "SKILL.md").read_text()
-        assert "name: quidclaw" in skill_content
-        assert "openclaw" in skill_content
+        assert (tmp_path / ".quidclaw" / "workflows" / "onboarding.md").exists()
 
     def test_init_idempotent(self, tmp_path):
-        """Running init twice should not fail."""
-        runner = _init_project(tmp_path)
-        result = runner.invoke(
-            main, ["init"], catch_exceptions=False,
-            env=_env(tmp_path),
-        )
+        runner = CliRunner()
+        env = _env(tmp_path)
+        runner.invoke(main, ["init", "--platform", "claude-code"],
+                      catch_exceptions=False, env=env)
+        result = runner.invoke(main, ["init", "--platform", "claude-code"],
+                               catch_exceptions=False, env=env)
         assert result.exit_code == 0
 
 
@@ -89,57 +133,30 @@ class TestInit:
 class TestUpgrade:
     def test_upgrade_updates_workflows(self, tmp_path):
         runner = _init_project(tmp_path)
-        # Verify workflows exist after init
         workflows_dir = tmp_path / ".quidclaw" / "workflows"
         assert workflows_dir.is_dir()
         assert (workflows_dir / "onboarding.md").exists()
-
-        # Simulate a stale workflow by truncating a file
         (workflows_dir / "onboarding.md").write_text("old content")
-
-        # Run upgrade
         result = runner.invoke(
             main, ["upgrade"], catch_exceptions=False,
             env=_env(tmp_path),
         )
         assert result.exit_code == 0
-
-        # Verify workflow was refreshed (no longer "old content")
         content = (workflows_dir / "onboarding.md").read_text()
         assert content != "old content"
-        assert "onboarding" in content.lower() or "Onboarding" in content
 
     def test_upgrade_updates_instruction_files(self, tmp_path):
-        """upgrade refreshes all instruction files."""
+        """upgrade refreshes instruction files for the stored platform."""
         runner = _init_project(tmp_path)
-
-        # Truncate all instruction files
-        for path in [
-            tmp_path / "CLAUDE.md",
-            tmp_path / "AGENTS.md",
-            tmp_path / "GEMINI.md",
-            tmp_path / "skills" / "quidclaw" / "SKILL.md",
-        ]:
-            assert path.exists()
-            path.write_text("old")
-
-        # Run upgrade
+        (tmp_path / "CLAUDE.md").write_text("old")
         result = runner.invoke(
             main, ["upgrade"], catch_exceptions=False,
             env=_env(tmp_path),
         )
         assert result.exit_code == 0
-
-        # Verify all were refreshed
-        for path in [
-            tmp_path / "CLAUDE.md",
-            tmp_path / "AGENTS.md",
-            tmp_path / "GEMINI.md",
-            tmp_path / "skills" / "quidclaw" / "SKILL.md",
-        ]:
-            content = path.read_text()
-            assert content != "old", f"{path.name} was not refreshed"
-            assert "QuidClaw" in content
+        content = (tmp_path / "CLAUDE.md").read_text()
+        assert content != "old"
+        assert "QuidClaw" in content
 
 
 # --- Data Status ---

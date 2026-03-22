@@ -17,7 +17,7 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 def data_dir(tmp_path):
     """Create a fresh QuidClaw data directory via CLI (includes CLAUDE.md + workflows)."""
     runner = CliRunner()
-    result = runner.invoke(main, ["init"], env={"QUIDCLAW_DATA_DIR": str(tmp_path)})
+    result = runner.invoke(main, ["init", "--platform", "claude-code"], env={"QUIDCLAW_DATA_DIR": str(tmp_path)})
     assert result.exit_code == 0
     return tmp_path
 

@@ -48,9 +48,25 @@ def main():
 # --- Setup ---
 
 
+PLATFORMS = ["openclaw", "claude-code", "gemini", "codex"]
+
+
 @main.command()
-def init():
+@click.option("--platform", type=click.Choice(PLATFORMS), default=None,
+              help="Target platform (openclaw, claude-code, gemini, codex)")
+def init(platform):
     """Initialize a new financial project in the current directory."""
+    if platform is None:
+        click.echo("Which platform are you using?")
+        click.echo("  1. OpenClaw (recommended)")
+        click.echo("  2. Claude Code")
+        click.echo("  3. Gemini CLI")
+        click.echo("  4. Codex")
+        click.echo("  5. Other")
+        choice = click.prompt("", type=click.IntRange(1, 5))
+        platform = {1: "openclaw", 2: "claude-code", 3: "gemini",
+                    4: "codex", 5: "codex"}[choice]
+
     config = get_config()
     ledger = Ledger(config)
     ledger.init()
@@ -63,9 +79,48 @@ def init():
         for f in workflows_dir.glob("*.md"):
             shutil.copy2(f, target_dir / f.name)
 
-    # Generate instruction files for all supported AI platforms
-    _generate_instruction_files(config)
-    click.echo("Created instruction files (CLAUDE.md, AGENTS.md, GEMINI.md, skills/quidclaw/SKILL.md)")
+    # Store platform choice
+    config.set_setting("platform", platform)
+
+    # Generate platform-specific files
+    body = _build_instruction_body(config)
+    data_dir = Path(config.data_dir)
+
+    if platform == "openclaw":
+        from quidclaw.core.openclaw import OpenClawSetup
+        setup = OpenClawSetup(config)
+        setup.generate_templates()
+        setup.generate_agents_md(body)
+
+        # Auto-enable git backup
+        from quidclaw.core.backup import BackupManager
+        mgr = BackupManager(config)
+        if mgr.is_git_available() and not mgr.is_initialized():
+            mgr.init()
+            click.echo("Git backup: initialized")
+
+        # Try to create OpenClaw agent
+        if setup.is_available():
+            if setup.create_agent():
+                click.echo("OpenClaw agent 'quidclaw' created.")
+            else:
+                click.echo("Warning: Could not create OpenClaw agent.", err=True)
+                click.echo(f"  Run: openclaw agents add quidclaw --workspace {config.data_dir}", err=True)
+        else:
+            click.echo("Note: openclaw CLI not found. After installing, run:")
+            click.echo(f"  openclaw agents add quidclaw --workspace {config.data_dir}")
+
+    elif platform == "claude-code":
+        (data_dir / "CLAUDE.md").write_text(body)
+        click.echo("Created CLAUDE.md")
+
+    elif platform == "gemini":
+        (data_dir / "GEMINI.md").write_text(body)
+        click.echo("Created GEMINI.md")
+
+    elif platform == "codex":
+        (data_dir / "AGENTS.md").write_text(body)
+        click.echo("Created AGENTS.md")
 
     click.echo(f"Initialized QuidClaw project in {config.data_dir}")
     _try_backup(config, "Initialize QuidClaw data directory")
@@ -88,8 +143,39 @@ def upgrade():
         ledger = Ledger(config)
         ledger.ensure_dirs()
 
-    _generate_instruction_files(config)
-    click.echo("Updated instruction files (CLAUDE.md, AGENTS.md, GEMINI.md, skills/quidclaw/SKILL.md)")
+    platform = config.get_setting("platform", "claude-code")
+    body = _build_instruction_body(config)
+    data_dir = Path(config.data_dir)
+
+    if platform == "openclaw":
+        from quidclaw.core.openclaw import OpenClawSetup
+        setup = OpenClawSetup(config)
+        setup.generate_templates()
+        setup.generate_agents_md(body)
+        click.echo("Updated OpenClaw files")
+    elif platform == "claude-code":
+        (data_dir / "CLAUDE.md").write_text(body)
+        click.echo("Updated CLAUDE.md")
+    elif platform == "gemini":
+        (data_dir / "GEMINI.md").write_text(body)
+        click.echo("Updated GEMINI.md")
+    elif platform == "codex":
+        (data_dir / "AGENTS.md").write_text(body)
+        click.echo("Updated AGENTS.md")
+
+    # Update SKILL.md if it exists (for ClawHub users)
+    skill_path = data_dir / "skills" / "quidclaw" / "SKILL.md"
+    if skill_path.exists():
+        skill_prefix = (
+            "---\nname: quidclaw\n"
+            "description: Personal CFO — AI-powered financial management via Beancount\n"
+            "metadata:\n  openclaw:\n    requires:\n      bins: [quidclaw]\n---\n\n"
+            "> **Recommended:** For the best experience, create a dedicated QuidClaw\n"
+            "> agent with `quidclaw init --platform openclaw`.\n\n"
+        )
+        skill_path.write_text(skill_prefix + body)
+        click.echo("Updated skills/quidclaw/SKILL.md")
+
     click.echo("Upgrade complete.")
     _try_backup(config, "Upgrade QuidClaw workflows")
 
@@ -916,38 +1002,3 @@ Read `.quidclaw/workflows/<name>.md` for detailed workflow instructions:
 - Account naming: use last 4 digits or identifiers (e.g., Assets:Bank:CMB:1234)
 - Always reconcile before generating reports or answering financial questions
 """
-
-
-# Instruction files to generate: (relative_path, optional_prefix)
-_INSTRUCTION_FILES = [
-    ("CLAUDE.md", ""),
-    ("AGENTS.md", ""),
-    ("GEMINI.md", ""),
-    ("skills/quidclaw/SKILL.md", """\
----
-name: quidclaw
-description: Personal CFO — AI-powered financial management via Beancount
-metadata:
-  openclaw:
-    requires:
-      bins: [quidclaw]
----
-
-"""),
-]
-
-
-def _generate_instruction_files(config: QuidClawConfig):
-    """Generate instruction files for all supported AI platforms."""
-    body = _build_instruction_body(config)
-    data_dir = Path(config.data_dir)
-    for rel_path, prefix in _INSTRUCTION_FILES:
-        path = data_dir / rel_path
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(prefix + body)
-
-
-# Keep backward-compatible alias used by init/upgrade
-def _generate_claude_md(config: QuidClawConfig):
-    """Generate all instruction files (CLAUDE.md, AGENTS.md, GEMINI.md, SKILL.md)."""
-    _generate_instruction_files(config)
