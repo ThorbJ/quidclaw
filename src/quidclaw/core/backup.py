@@ -1,5 +1,6 @@
 """Git-based backup for QuidClaw data directories."""
 
+import platform
 import shutil
 import subprocess
 from pathlib import Path
@@ -112,6 +113,33 @@ class BackupManager:
 
     def remove_remote(self, name: str) -> None:
         self._run_git("remote", "remove", name)
+
+    # --- Status ---
+
+    def status(self) -> dict:
+        result = {
+            "initialized": self.is_initialized(),
+            "git_available": self.is_git_available(),
+            "lfs_available": self.is_lfs_available(),
+            "remotes": [],
+            "last_commit": None,
+        }
+        if not self.is_initialized():
+            return result
+        result["remotes"] = self.list_remotes()
+        log = self._run_git("log", "--oneline", "-1", check=False)
+        if log.returncode == 0:
+            result["last_commit"] = log.stdout.strip()
+        return result
+
+    def get_install_instructions(self) -> str:
+        system = platform.system()
+        if system == "Darwin":
+            return "Install Git: xcode-select --install  (or: brew install git)"
+        elif system == "Linux":
+            return "Install Git: sudo apt install git  (or: sudo yum install git)"
+        else:
+            return "Install Git: https://git-scm.com/downloads"
 
     # --- Daily Operations ---
 

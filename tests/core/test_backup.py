@@ -198,3 +198,42 @@ class TestAutoPush:
         with patch.object(mgr, "_push_async"):
             result = mgr.commit_and_push("Test commit")
             assert result is True
+
+
+class TestStatus:
+    def test_status_not_initialized(self, tmp_path):
+        config = QuidClawConfig(data_dir=tmp_path)
+        mgr = BackupManager(config)
+        status = mgr.status()
+        assert status["initialized"] is False
+        assert status["remotes"] == []
+
+    def test_status_initialized_no_remote(self, tmp_path):
+        config = QuidClawConfig(data_dir=tmp_path)
+        mgr = BackupManager(config)
+        mgr.init()
+        status = mgr.status()
+        assert status["initialized"] is True
+        assert status["remotes"] == []
+        assert status["last_commit"] is not None
+        assert "Initialize QuidClaw" in status["last_commit"]
+
+    def test_status_with_remotes(self, tmp_path):
+        config = QuidClawConfig(data_dir=tmp_path)
+        mgr = BackupManager(config)
+        mgr.init()
+        mgr.add_remote("github", "https://github.com/u/r.git")
+        status = mgr.status()
+        assert len(status["remotes"]) == 1
+        assert status["remotes"][0]["name"] == "github"
+
+
+class TestInstallInstructions:
+    def test_returns_string(self, tmp_path):
+        config = QuidClawConfig(data_dir=tmp_path)
+        mgr = BackupManager(config)
+        instructions = mgr.get_install_instructions()
+        assert isinstance(instructions, str)
+        assert "git" in instructions.lower()
+
+
