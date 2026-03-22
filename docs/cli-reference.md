@@ -45,6 +45,16 @@ All commands support `--help`. Most support `--json` for structured AI-friendly 
 | `quidclaw sync [SOURCE_NAME]` | Sync data from external sources; omit name to sync all (`--json`) |
 | `quidclaw mark-processed SOURCE_NAME EMAIL_DIR` | Mark an email as processed |
 
+## Backup (5)
+
+| Command | Purpose |
+|---------|---------|
+| `quidclaw backup init` | Initialize Git backup in the data directory |
+| `quidclaw backup status` | Show backup status (branch, remotes, uncommitted changes) |
+| `quidclaw backup add-remote NAME URL` | Add a remote repository for backup |
+| `quidclaw backup remove-remote NAME` | Remove a backup remote |
+| `quidclaw backup push [--remote NAME]` | Push to all remotes, or a specific remote (`--remote`) |
+
 ## Data Management (3)
 
 | Command | Purpose |

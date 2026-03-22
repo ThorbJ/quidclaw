@@ -73,10 +73,21 @@ Pure Python business logic. Each module has a single responsibility:
 | `sources/registry.py` | — | Provider registration, factory, env: resolution |
 | `sources/agentmail.py` | `AgentMailSource` | AgentMail email sync provider |
 | `logs.py` | `AuditLogger` | Processing event audit trail |
+| `backup.py` | `BackupManager` | Git-based versioning and multi-remote backup |
 
 **Dependency convention:**
 - Classes that operate on **ledger data** take a `Ledger` instance in their constructor
 - Classes that operate on **files** (inbox, notes) take a `QuidClawConfig` instance
+
+### `core/backup.py` — Git Backup Manager
+
+Manages Git-based versioning and multi-remote backup of the data directory. Wraps `git` CLI via subprocess. Supports:
+- Auto-commit after write operations
+- Async push to multiple remotes (fire-and-forget)
+- Git LFS for binary files (PDFs, images)
+- Status reporting
+
+Backup never blocks normal operations — all failures are silently swallowed.
 
 ### Layer 2: CLI Adapter (`src/quidclaw/cli.py`)
 

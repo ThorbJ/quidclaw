@@ -845,6 +845,13 @@ quidclaw list-sources                    # List configured sources
 quidclaw remove-source NAME --confirm    # Remove a data source
 quidclaw sync [SOURCE]                   # Sync from external sources
 quidclaw mark-processed SOURCE DIR       # Mark email as processed
+
+# Backup
+quidclaw backup init                    # Initialize Git backup
+quidclaw backup status                  # Show backup status
+quidclaw backup add-remote NAME URL     # Add remote for backup
+quidclaw backup remove-remote NAME      # Remove a remote
+quidclaw backup push [--remote NAME]    # Push to remotes
 ```
 
 ### Price Tracking
