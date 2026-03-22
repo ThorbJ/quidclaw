@@ -55,6 +55,7 @@ The AI reads the generated `CLAUDE.md`, understands the project structure, and u
 - **Email integration** — Forward bills to a dedicated email address. QuidClaw syncs and processes them automatically.
 - **Audit trail** — Every transaction traces back to its source document. Processing logs record what was extracted and confirmed.
 - **Extensible data sources** — Pull data from email (AgentMail), with architecture ready for future sources (bank APIs, broker integrations).
+- **Git backup** — Automatic version control with multi-remote backup. Every change is committed and pushed to GitHub, Gitee, or any Git host. Supports Git LFS for binary files.
 
 ## Quick Start
 
@@ -147,7 +148,7 @@ my-finances/
 
 ## CLI Reference
 
-26 commands for Beancount operations and data source management. The AI calls these via Bash. Most commands support `--json` for structured output.
+31 commands for Beancount operations, data source management, and backup. The AI calls these via Bash. Most commands support `--json` for structured output.
 
 ### Setup
 
@@ -199,6 +200,16 @@ my-finances/
 | `quidclaw remove-source NAME --confirm` | Remove a data source |
 | `quidclaw sync [SOURCE]` | Sync data from external sources |
 | `quidclaw mark-processed SOURCE DIR` | Mark synced email as processed |
+
+### Backup
+
+| Command | Description |
+|---------|-------------|
+| `quidclaw backup init` | Initialize Git backup for the data directory |
+| `quidclaw backup status` | Show backup status — remotes, last commit, LFS (`--json`) |
+| `quidclaw backup add-remote NAME URL` | Add a remote repository for backup (supports multiple) |
+| `quidclaw backup remove-remote NAME` | Remove a backup remote |
+| `quidclaw backup push` | Push to all remotes, or a specific one (`--remote NAME`) |
 
 ## Workflows
 
