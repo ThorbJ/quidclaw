@@ -1,0 +1,90 @@
+"""Git-based backup for QuidClaw data directories."""
+
+import shutil
+import subprocess
+from pathlib import Path
+
+from quidclaw.config import QuidClawConfig
+
+GITIGNORE_CONTENT = """\
+# QuidClaw — auto-generated
+# Temporary files
+inbox/
+
+# Secrets (API keys in config)
+.quidclaw/config.yaml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*~
+"""
+
+GITATTRIBUTES_CONTENT = """\
+# QuidClaw LFS — track binary files
+documents/**/*.pdf filter=lfs diff=lfs merge=lfs -text
+documents/**/*.png filter=lfs diff=lfs merge=lfs -text
+documents/**/*.jpg filter=lfs diff=lfs merge=lfs -text
+documents/**/*.jpeg filter=lfs diff=lfs merge=lfs -text
+documents/**/*.gif filter=lfs diff=lfs merge=lfs -text
+documents/**/*.xlsx filter=lfs diff=lfs merge=lfs -text
+documents/**/*.xls filter=lfs diff=lfs merge=lfs -text
+documents/**/*.docx filter=lfs diff=lfs merge=lfs -text
+documents/**/*.doc filter=lfs diff=lfs merge=lfs -text
+sources/**/attachments/*.pdf filter=lfs diff=lfs merge=lfs -text
+sources/**/attachments/*.png filter=lfs diff=lfs merge=lfs -text
+sources/**/attachments/*.jpg filter=lfs diff=lfs merge=lfs -text
+sources/**/attachments/*.jpeg filter=lfs diff=lfs merge=lfs -text
+sources/**/attachments/*.gif filter=lfs diff=lfs merge=lfs -text
+sources/**/attachments/*.xlsx filter=lfs diff=lfs merge=lfs -text
+sources/**/attachments/*.xls filter=lfs diff=lfs merge=lfs -text
+"""
+
+
+class BackupManager:
+    """Git-based backup for QuidClaw data directories."""
+
+    def __init__(self, config: QuidClawConfig):
+        self.data_dir = Path(config.data_dir)
+
+    def _run_git(self, *args, check=True) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ["git", *args],
+            cwd=self.data_dir,
+            check=check,
+            capture_output=True,
+            text=True,
+        )
+
+    # --- Detection ---
+
+    def is_git_available(self) -> bool:
+        return shutil.which("git") is not None
+
+    def is_initialized(self) -> bool:
+        return (self.data_dir / ".git").is_dir()
+
+    def is_lfs_available(self) -> bool:
+        return shutil.which("git-lfs") is not None
+
+    # --- Init ---
+
+    def init(self) -> None:
+        if self.is_initialized():
+            return
+
+        self._run_git("init")
+        self._run_git("config", "user.email", "quidclaw@local")
+        self._run_git("config", "user.name", "QuidClaw")
+
+        (self.data_dir / ".gitignore").write_text(GITIGNORE_CONTENT)
+        (self.data_dir / ".gitattributes").write_text(GITATTRIBUTES_CONTENT)
+
+        if self.is_lfs_available():
+            self._run_git("lfs", "install", "--local")
+
+        self._run_git("add", "-A")
+        self._run_git("commit", "-m", "Initialize QuidClaw data directory")
