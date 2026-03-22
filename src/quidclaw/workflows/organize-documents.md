@@ -39,6 +39,13 @@ For documents that contain important non-transaction info (contracts, insurance 
   - Insurance -> `notes/insurance/`
   - Other -> `notes/` root
 
+## When Blocked
+
+If you cannot identify a document and the user is not available:
+1. Save a pending item to `notes/pending/{date}_{description}.yaml`
+2. Leave the file in inbox
+3. Move on to the next file
+
 ## Rules
 
 - Never move a file without user confirmation

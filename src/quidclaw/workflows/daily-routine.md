@@ -45,9 +45,23 @@ Provide a brief summary to the user:
 - Anomalies: list any found
 - Overall status: "Everything looks good" or specific action items
 
+## Output Format
+
+Keep the daily briefing concise and scannable for messaging apps:
+- Use emoji as visual markers (📬 📊 ⚠️ ✅)
+- One line per item, no tables or code blocks
+- Total length under 500 characters
+- If nothing needs attention: "一切正常 ✅"
+
+Example:
+  📬 2 new emails processed (招商银行, 电费通知)
+  💳 信用卡账单已导入: ¥8,523 (47 笔)
+  ⏰ 房租 ¥5,000 后天到期
+  ✅ 其余一切正常
+
 ## When to Run
 
 This workflow can be triggered:
 - Manually by the user ("check my finances", "daily routine", "what's new")
-- By a scheduled task (future feature)
+- By a cron job (OpenClaw: daily at user's preferred time)
 - At the start of a conversation when the user has configured proactive mode

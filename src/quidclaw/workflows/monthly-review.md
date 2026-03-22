@@ -31,6 +31,23 @@ Flag the 3-5 largest individual transactions.
 - Concerns: "Your food spending has been increasing for 3 months straight."
 - Suggestions: Keep it actionable and brief.
 
+## Output Format
+
+Monthly summary should be structured but readable in chat:
+- Lead with the headline numbers
+- Category breakdown as a simple list
+- Flag anomalies and notable changes
+- Keep under 1000 characters for the summary
+- Offer to send detailed report if user wants
+
+Example:
+  📊 3月财务总结
+  💰 收入: ¥25,000
+  💸 支出: ¥18,523 (比上月 +8%)
+  🏠 房租 ¥5,000 (27%) | 🍽 餐饮 ¥3,200 (17%) | 🚗 交通 ¥1,800 (10%)
+  ⚠️ Netflix 从 $15.99 涨到 $22.99
+  📁 详细报告已保存到 reports/
+
 ## Save Report
 
 Save the full report to `reports/YYYY-MM-monthly-report.md`.

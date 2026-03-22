@@ -117,6 +117,16 @@ Report to the user:
 - Where the files were archived to
 - Any issues or items that need follow-up
 
+## When Blocked
+
+If you cannot complete processing (encrypted PDF, ambiguous transaction,
+missing account info):
+1. Save a pending item to `notes/pending/{date}_{description}.yaml` with fields:
+   created, type (blocked), reason, context, action
+2. Notify the user what you need
+3. Move on to the next file — do not stop the entire workflow
+4. The pending item will be picked up on the next heartbeat
+
 ## Important Rules
 
 - **Process one file at a time, completely.** Parse → Record → Archive → Next file.

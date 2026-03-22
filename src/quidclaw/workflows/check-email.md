@@ -83,6 +83,16 @@ After processing all emails, report:
 - How many transactions were recorded
 - Any issues or items needing follow-up
 
+## When Blocked
+
+If you cannot complete processing (missing password, unreadable file,
+ambiguous data):
+1. Save a pending item to `notes/pending/{date}_{description}.yaml` with fields:
+   created, type (blocked), reason, context, action
+2. Notify the user what you need
+3. Move on to the next item — do not stop the entire workflow
+4. The pending item will be picked up on the next heartbeat
+
 ## Important Rules
 
 - ALWAYS read envelope.yaml + body.txt together before processing attachments — context matters
