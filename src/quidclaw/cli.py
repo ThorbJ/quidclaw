@@ -54,11 +54,9 @@ def init():
         for f in workflows_dir.glob("*.md"):
             shutil.copy2(f, target_dir / f.name)
 
-    # Generate CLAUDE.md
-    claude_md = Path(config.data_dir) / "CLAUDE.md"
-    if not claude_md.exists():
-        _generate_claude_md(config)
-        click.echo("Created CLAUDE.md")
+    # Generate instruction files for all supported AI platforms
+    _generate_instruction_files(config)
+    click.echo("Created instruction files (CLAUDE.md, AGENTS.md, GEMINI.md, skills/quidclaw/SKILL.md)")
 
     click.echo(f"Initialized QuidClaw project in {config.data_dir}")
 
@@ -80,8 +78,8 @@ def upgrade():
         ledger = Ledger(config)
         ledger.ensure_dirs()
 
-    _generate_claude_md(config)
-    click.echo("Updated CLAUDE.md")
+    _generate_instruction_files(config)
+    click.echo("Updated instruction files (CLAUDE.md, AGENTS.md, GEMINI.md, skills/quidclaw/SKILL.md)")
     click.echo("Upgrade complete.")
 
 
@@ -616,16 +614,140 @@ def fetch_prices(commodities, as_json):
                 click.echo(f"  {r['commodity']}: {r['price']} {r['currency']} ({r['date']})")
 
 
+# --- Backup ---
+
+
+@main.group()
+def backup():
+    """Git backup management."""
+    pass
+
+
+@backup.command("init")
+def backup_init():
+    """Initialize Git backup for this data directory."""
+    from quidclaw.core.backup import BackupManager
+    config = get_config()
+    mgr = BackupManager(config)
+    if not mgr.is_git_available():
+        click.echo(f"Error: Git is not installed. {mgr.get_install_instructions()}", err=True)
+        sys.exit(1)
+    if mgr.is_initialized():
+        click.echo("Git backup already initialized.")
+        return
+    mgr.init()
+    click.echo("Initialized Git backup.")
+    if not mgr.is_lfs_available():
+        click.echo("Note: git-lfs not installed. Binary files will be stored without LFS.")
+        click.echo("  Install: brew install git-lfs  (or: apt install git-lfs)")
+
+
+@backup.command("status")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON")
+def backup_status(as_json):
+    """Show backup status."""
+    from quidclaw.core.backup import BackupManager
+    config = get_config()
+    mgr = BackupManager(config)
+    status = mgr.status()
+    if as_json:
+        click.echo(json.dumps(status, indent=2))
+    else:
+        if not status["initialized"]:
+            click.echo("Git backup: not initialized")
+            click.echo("  Run 'quidclaw backup init' to enable.")
+            return
+        click.echo("Git backup: initialized")
+        click.echo(f"  Last commit: {status['last_commit']}")
+        click.echo(f"  LFS: {'available' if status['lfs_available'] else 'not installed'}")
+        remotes = status["remotes"]
+        if remotes:
+            click.echo(f"  Remotes ({len(remotes)}):")
+            for r in remotes:
+                click.echo(f"    {r['name']}: {r['url']}")
+        else:
+            click.echo("  Remotes: none configured")
+
+
+@backup.command("add-remote")
+@click.argument("name")
+@click.argument("url")
+def backup_add_remote(name, url):
+    """Add a remote repository for backup."""
+    from quidclaw.core.backup import BackupManager
+    config = get_config()
+    mgr = BackupManager(config)
+    if not mgr.is_initialized():
+        click.echo("Error: Git backup not initialized. Run 'quidclaw backup init' first.", err=True)
+        sys.exit(1)
+    mgr.add_remote(name, url)
+    click.echo(f"Added remote '{name}': {url}")
+    click.echo("  Make sure the repository is Private (financial data!).")
+    click.echo(f"  Test with: quidclaw backup push --remote {name}")
+
+
+@backup.command("remove-remote")
+@click.argument("name")
+def backup_remove_remote(name):
+    """Remove a remote repository."""
+    import subprocess as _sp
+    from quidclaw.core.backup import BackupManager
+    config = get_config()
+    mgr = BackupManager(config)
+    if not mgr.is_initialized():
+        click.echo("Error: Git backup not initialized.", err=True)
+        sys.exit(1)
+    try:
+        mgr.remove_remote(name)
+    except _sp.CalledProcessError:
+        click.echo(f"Error: Remote '{name}' not found.", err=True)
+        sys.exit(1)
+    click.echo(f"Removed remote '{name}'.")
+
+
+@backup.command("push")
+@click.option("--remote", default=None, help="Push to specific remote (default: all)")
+def backup_push(remote):
+    """Push to remote repositories."""
+    import subprocess as _sp
+    from quidclaw.core.backup import BackupManager
+    config = get_config()
+    mgr = BackupManager(config)
+    if not mgr.is_initialized():
+        click.echo("Error: Git backup not initialized.", err=True)
+        sys.exit(1)
+    if remote:
+        try:
+            mgr._run_git("push", remote)
+            click.echo(f"Pushed to '{remote}'.")
+        except _sp.CalledProcessError as e:
+            click.echo(f"Error pushing to '{remote}': {e.stderr.strip()}", err=True)
+            sys.exit(1)
+    else:
+        remotes = mgr.list_remotes()
+        if not remotes:
+            click.echo("No remotes configured. Use 'quidclaw backup add-remote' first.", err=True)
+            sys.exit(1)
+        for r in remotes:
+            try:
+                mgr._run_git("push", r["name"])
+                click.echo(f"Pushed to '{r['name']}'.")
+            except _sp.CalledProcessError as e:
+                click.echo(f"Error pushing to '{r['name']}': {e.stderr.strip()}", err=True)
+
+
 # --- Helpers ---
 
 
-def _generate_claude_md(config: QuidClawConfig):
-    """Generate CLAUDE.md for the financial project."""
+def _build_instruction_body(config: QuidClawConfig) -> str:
+    """Build the shared instruction body used by all platform instruction files."""
     currency = config.get_setting("operating_currency")
-    currency_line = f"- Operating currency: {currency}" if currency else "- Operating currency: (not yet configured — will be set during onboarding)"
-
-    claude_md_path = Path(config.data_dir) / "CLAUDE.md"
-    claude_md_path.write_text(f"""\
+    currency_line = (
+        f"- Operating currency: {currency}"
+        if currency
+        else "- Operating currency: (not yet configured — will be set during onboarding)"
+    )
+    return f"""\
 # QuidClaw — Personal CFO
 
 You are a personal CFO managing finances in this directory.
@@ -655,7 +777,7 @@ When you start a conversation, check:
 
 ## Available CLI Commands
 
-Use these via Bash when you need Beancount engine operations:
+Run these in the shell for Beancount engine operations:
 
 ```
 # Setup
@@ -728,11 +850,10 @@ Most commands support `--json` for structured output.
 ## File Operations
 
 For file operations, use your native tools directly:
-- Read/write notes: Read and Write tools on `notes/*.md`
-- List inbox: Glob `inbox/*`
-- Search notes: Grep across `notes/`
-- Move files: Bash `mv`
-- List documents: Glob `documents/**/*`
+- Read/write notes in `notes/*.md`
+- List inbox: `inbox/*`
+- Search notes across `notes/`
+- List documents: `documents/**/*`
 
 ## Workflows
 
@@ -759,4 +880,39 @@ Read `.quidclaw/workflows/<name>.md` for detailed workflow instructions:
 - Document naming: `{{Source}}-{{Type}}-{{YYYY-MM}}.{{ext}}`
 - Account naming: use last 4 digits or identifiers (e.g., Assets:Bank:CMB:1234)
 - Always reconcile before generating reports or answering financial questions
-""")
+"""
+
+
+# Instruction files to generate: (relative_path, optional_prefix)
+_INSTRUCTION_FILES = [
+    ("CLAUDE.md", ""),
+    ("AGENTS.md", ""),
+    ("GEMINI.md", ""),
+    ("skills/quidclaw/SKILL.md", """\
+---
+name: quidclaw
+description: Personal CFO — AI-powered financial management via Beancount
+metadata:
+  openclaw:
+    requires:
+      bins: [quidclaw]
+---
+
+"""),
+]
+
+
+def _generate_instruction_files(config: QuidClawConfig):
+    """Generate instruction files for all supported AI platforms."""
+    body = _build_instruction_body(config)
+    data_dir = Path(config.data_dir)
+    for rel_path, prefix in _INSTRUCTION_FILES:
+        path = data_dir / rel_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(prefix + body)
+
+
+# Keep backward-compatible alias used by init/upgrade
+def _generate_claude_md(config: QuidClawConfig):
+    """Generate all instruction files (CLAUDE.md, AGENTS.md, GEMINI.md, SKILL.md)."""
+    _generate_instruction_files(config)

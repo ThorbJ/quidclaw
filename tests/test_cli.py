@@ -58,6 +58,21 @@ class TestInit:
         content = claude_md.read_text()
         assert "QuidClaw" in content
 
+    def test_creates_all_instruction_files(self, tmp_path):
+        """init creates instruction files for all supported AI platforms."""
+        _init_project(tmp_path)
+        for path, marker in [
+            (tmp_path / "AGENTS.md", "QuidClaw"),
+            (tmp_path / "GEMINI.md", "QuidClaw"),
+            (tmp_path / "skills" / "quidclaw" / "SKILL.md", "quidclaw"),
+        ]:
+            assert path.exists(), f"{path.name} not created"
+            assert marker in path.read_text()
+        # SKILL.md should have OpenClaw frontmatter
+        skill_content = (tmp_path / "skills" / "quidclaw" / "SKILL.md").read_text()
+        assert "name: quidclaw" in skill_content
+        assert "openclaw" in skill_content
+
     def test_init_idempotent(self, tmp_path):
         """Running init twice should not fail."""
         runner = _init_project(tmp_path)
@@ -94,13 +109,19 @@ class TestUpgrade:
         assert content != "old content"
         assert "onboarding" in content.lower() or "Onboarding" in content
 
-    def test_upgrade_updates_claude_md(self, tmp_path):
+    def test_upgrade_updates_instruction_files(self, tmp_path):
+        """upgrade refreshes all instruction files."""
         runner = _init_project(tmp_path)
-        claude_md = tmp_path / "CLAUDE.md"
-        assert claude_md.exists()
 
-        # Truncate CLAUDE.md
-        claude_md.write_text("old")
+        # Truncate all instruction files
+        for path in [
+            tmp_path / "CLAUDE.md",
+            tmp_path / "AGENTS.md",
+            tmp_path / "GEMINI.md",
+            tmp_path / "skills" / "quidclaw" / "SKILL.md",
+        ]:
+            assert path.exists()
+            path.write_text("old")
 
         # Run upgrade
         result = runner.invoke(
@@ -109,10 +130,16 @@ class TestUpgrade:
         )
         assert result.exit_code == 0
 
-        # Verify CLAUDE.md was refreshed
-        content = claude_md.read_text()
-        assert "QuidClaw" in content
-        assert "quidclaw" in content
+        # Verify all were refreshed
+        for path in [
+            tmp_path / "CLAUDE.md",
+            tmp_path / "AGENTS.md",
+            tmp_path / "GEMINI.md",
+            tmp_path / "skills" / "quidclaw" / "SKILL.md",
+        ]:
+            content = path.read_text()
+            assert content != "old", f"{path.name} was not refreshed"
+            assert "QuidClaw" in content
 
 
 # --- Data Status ---
@@ -463,3 +490,116 @@ class TestSources:
         )
         assert result.exit_code != 0
         assert "confirm" in result.output.lower() or "Missing" in result.output
+
+
+# --- Backup ---
+
+
+class TestBackup:
+    def test_backup_init(self, tmp_path):
+        runner = _init_project(tmp_path)
+        result = runner.invoke(
+            main, ["backup", "init"], catch_exceptions=False,
+            env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        assert (tmp_path / ".git").is_dir()
+
+    def test_backup_init_already_initialized(self, tmp_path):
+        runner = _init_project(tmp_path)
+        env = _env(tmp_path)
+        runner.invoke(main, ["backup", "init"], catch_exceptions=False, env=env)
+        result = runner.invoke(main, ["backup", "init"], catch_exceptions=False, env=env)
+        assert result.exit_code == 0
+        assert "already" in result.output.lower()
+
+    def test_backup_status_not_initialized(self, tmp_path):
+        runner = _init_project(tmp_path)
+        result = runner.invoke(
+            main, ["backup", "status"], catch_exceptions=False,
+            env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        assert "not initialized" in result.output.lower()
+
+    def test_backup_status_initialized(self, tmp_path):
+        runner = _init_project(tmp_path)
+        env = _env(tmp_path)
+        runner.invoke(main, ["backup", "init"], catch_exceptions=False, env=env)
+        result = runner.invoke(
+            main, ["backup", "status"], catch_exceptions=False, env=env,
+        )
+        assert result.exit_code == 0
+
+    def test_backup_status_json(self, tmp_path):
+        runner = _init_project(tmp_path)
+        env = _env(tmp_path)
+        runner.invoke(main, ["backup", "init"], catch_exceptions=False, env=env)
+        result = runner.invoke(
+            main, ["backup", "status", "--json"], catch_exceptions=False, env=env,
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["initialized"] is True
+
+    def test_backup_add_remote(self, tmp_path):
+        runner = _init_project(tmp_path)
+        env = _env(tmp_path)
+        runner.invoke(main, ["backup", "init"], catch_exceptions=False, env=env)
+        result = runner.invoke(
+            main, ["backup", "add-remote", "github", "https://github.com/u/r.git"],
+            catch_exceptions=False, env=env,
+        )
+        assert result.exit_code == 0
+        assert "github" in result.output
+
+    def test_backup_add_multiple_remotes(self, tmp_path):
+        runner = _init_project(tmp_path)
+        env = _env(tmp_path)
+        runner.invoke(main, ["backup", "init"], catch_exceptions=False, env=env)
+        runner.invoke(
+            main, ["backup", "add-remote", "github", "https://github.com/u/r.git"],
+            catch_exceptions=False, env=env,
+        )
+        runner.invoke(
+            main, ["backup", "add-remote", "gitee", "https://gitee.com/u/r.git"],
+            catch_exceptions=False, env=env,
+        )
+        result = runner.invoke(
+            main, ["backup", "status", "--json"], catch_exceptions=False, env=env,
+        )
+        data = json.loads(result.output)
+        assert len(data["remotes"]) == 2
+
+    def test_backup_remove_remote(self, tmp_path):
+        runner = _init_project(tmp_path)
+        env = _env(tmp_path)
+        runner.invoke(main, ["backup", "init"], catch_exceptions=False, env=env)
+        runner.invoke(
+            main, ["backup", "add-remote", "github", "https://github.com/u/r.git"],
+            catch_exceptions=False, env=env,
+        )
+        result = runner.invoke(
+            main, ["backup", "remove-remote", "github"],
+            catch_exceptions=False, env=env,
+        )
+        assert result.exit_code == 0
+
+    def test_backup_push_no_init(self, tmp_path):
+        runner = _init_project(tmp_path)
+        result = runner.invoke(
+            main, ["backup", "push"],
+            env=_env(tmp_path),
+        )
+        assert result.exit_code != 0
+
+    def test_backup_init_requires_git(self, tmp_path):
+        runner = _init_project(tmp_path)
+        from unittest.mock import patch
+        with patch("quidclaw.core.backup.shutil.which", return_value=None):
+            result = runner.invoke(
+                main, ["backup", "init"],
+                env=_env(tmp_path),
+            )
+        assert result.exit_code != 0
+        assert "git" in result.output.lower()
