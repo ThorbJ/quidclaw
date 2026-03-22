@@ -61,3 +61,36 @@ def test_remove_source_not_found(tmp_path):
     import pytest
     with pytest.raises(KeyError, match="Source not found"):
         config.remove_source("nonexistent")
+
+
+class TestBackupConfig:
+    def test_backup_defaults_not_set(self, tmp_path):
+        from quidclaw.config import QuidClawConfig
+        config = QuidClawConfig(data_dir=tmp_path)
+        config.config_dir.mkdir(parents=True, exist_ok=True)
+        assert config.get_backup_setting("enabled") is None
+
+    def test_set_and_get_backup_setting(self, tmp_path):
+        from quidclaw.config import QuidClawConfig
+        config = QuidClawConfig(data_dir=tmp_path)
+        config.config_dir.mkdir(parents=True, exist_ok=True)
+        config.set_backup_setting("enabled", True)
+        assert config.get_backup_setting("enabled") is True
+
+    def test_backup_settings_nested_under_backup_key(self, tmp_path):
+        from quidclaw.config import QuidClawConfig
+        config = QuidClawConfig(data_dir=tmp_path)
+        config.config_dir.mkdir(parents=True, exist_ok=True)
+        config.set_backup_setting("enabled", True)
+        config.set_backup_setting("auto_push", True)
+        settings = config.load_settings()
+        assert settings["backup"]["enabled"] is True
+        assert settings["backup"]["auto_push"] is True
+
+    def test_backup_setting_does_not_clobber_other_settings(self, tmp_path):
+        from quidclaw.config import QuidClawConfig
+        config = QuidClawConfig(data_dir=tmp_path)
+        config.config_dir.mkdir(parents=True, exist_ok=True)
+        config.set_setting("operating_currency", "CNY")
+        config.set_backup_setting("enabled", True)
+        assert config.get_setting("operating_currency") == "CNY"

@@ -102,6 +102,16 @@ class QuidClawConfig:
     def source_state_file(self, source_name: str) -> Path:
         return self.source_dir(source_name) / ".state.yaml"
 
+    def get_backup_setting(self, key: str, default=None):
+        """Get a backup setting from backup.{key}."""
+        return self.load_settings().get("backup", {}).get(key, default)
+
+    def set_backup_setting(self, key: str, value) -> None:
+        """Set a backup setting under backup.{key}."""
+        settings = self.load_settings()
+        settings.setdefault("backup", {})[key] = value
+        self.save_settings(settings)
+
     def get_sources(self) -> dict:
         return self.load_settings().get("data_sources", {})
 

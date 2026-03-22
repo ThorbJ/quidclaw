@@ -90,6 +90,12 @@ class BackupManager:
         self._run_git("add", "-A")
         self._run_git("commit", "-m", "Initialize QuidClaw data directory")
 
+        # Write default backup config (config.yaml is in .gitignore)
+        config = QuidClawConfig(data_dir=self.data_dir)
+        config.set_backup_setting("enabled", True)
+        config.set_backup_setting("auto_commit", True)
+        config.set_backup_setting("auto_push", True)
+
     # --- Remote Management ---
 
     def list_remotes(self) -> list[dict]:
@@ -165,6 +171,13 @@ class BackupManager:
     def auto_push(self) -> None:
         if not self.is_initialized():
             return
+        # Check if auto_push is explicitly disabled
+        try:
+            config = QuidClawConfig(data_dir=self.data_dir)
+            if config.get_backup_setting("auto_push") is False:
+                return
+        except Exception:
+            pass
         remotes = self.list_remotes()
         for remote in remotes:
             try:
@@ -180,8 +193,10 @@ class BackupManager:
 
 
 def try_backup(config: QuidClawConfig, message: str) -> None:
-    """Attempt git backup if initialized. Never raises."""
+    """Attempt git backup if initialized and enabled. Never raises."""
     try:
+        if config.get_backup_setting("enabled") is False:
+            return
         mgr = BackupManager(config)
         if mgr.is_initialized():
             mgr.commit_and_push(message)
