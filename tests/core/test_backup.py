@@ -119,3 +119,82 @@ class TestRemoteManagement:
         mgr = self._init_repo(tmp_path)
         mgr.add_remote("origin", "https://example.com/repo.git")
         assert mgr.has_remotes() is True
+
+
+class TestAutoCommit:
+    def _init_repo(self, tmp_path):
+        config = QuidClawConfig(data_dir=tmp_path)
+        mgr = BackupManager(config)
+        mgr.init()
+        return mgr
+
+    def test_auto_commit_with_changes(self, tmp_path):
+        mgr = self._init_repo(tmp_path)
+        (tmp_path / "ledger").mkdir(exist_ok=True)
+        (tmp_path / "ledger" / "test.bean").write_text("test data")
+        result = mgr.auto_commit("Add test data")
+        assert result is True
+        log = subprocess.run(
+            ["git", "log", "--oneline", "-1"],
+            cwd=tmp_path, capture_output=True, text=True,
+        )
+        assert "Add test data" in log.stdout
+
+    def test_auto_commit_no_changes(self, tmp_path):
+        mgr = self._init_repo(tmp_path)
+        result = mgr.auto_commit("Nothing to commit")
+        assert result is False
+
+    def test_auto_commit_stages_new_and_modified(self, tmp_path):
+        mgr = self._init_repo(tmp_path)
+        (tmp_path / "notes").mkdir(exist_ok=True)
+        (tmp_path / "notes" / "test.md").write_text("note")
+        mgr.auto_commit("Add note")
+        (tmp_path / "notes" / "test.md").write_text("updated note")
+        result = mgr.auto_commit("Update note")
+        assert result is True
+
+    def test_auto_commit_respects_gitignore(self, tmp_path):
+        mgr = self._init_repo(tmp_path)
+        (tmp_path / "inbox").mkdir(exist_ok=True)
+        (tmp_path / "inbox" / "temp.csv").write_text("data")
+        result = mgr.auto_commit("Should be empty")
+        assert result is False
+
+
+class TestAutoPush:
+    def _init_repo(self, tmp_path):
+        config = QuidClawConfig(data_dir=tmp_path)
+        mgr = BackupManager(config)
+        mgr.init()
+        return mgr
+
+    def test_auto_push_no_remote_does_nothing(self, tmp_path):
+        mgr = self._init_repo(tmp_path)
+        mgr.auto_push()  # Should not raise
+
+    def test_auto_push_with_remote_fires_subprocess(self, tmp_path):
+        mgr = self._init_repo(tmp_path)
+        mgr.add_remote("origin", "https://example.com/repo.git")
+        with patch.object(mgr, "_push_async") as mock_push:
+            mgr.auto_push()
+            mock_push.assert_called_once_with("origin")
+
+    def test_auto_push_multiple_remotes(self, tmp_path):
+        mgr = self._init_repo(tmp_path)
+        mgr.add_remote("github", "https://github.com/u/r.git")
+        mgr.add_remote("gitee", "https://gitee.com/u/r.git")
+        with patch.object(mgr, "_push_async") as mock_push:
+            mgr.auto_push()
+            assert mock_push.call_count == 2
+            pushed = {call[0][0] for call in mock_push.call_args_list}
+            assert pushed == {"github", "gitee"}
+
+    def test_commit_and_push(self, tmp_path):
+        mgr = self._init_repo(tmp_path)
+        (tmp_path / "ledger").mkdir(exist_ok=True)
+        (tmp_path / "ledger" / "test.bean").write_text("data")
+        mgr.add_remote("origin", "https://example.com/repo.git")
+        with patch.object(mgr, "_push_async"):
+            result = mgr.commit_and_push("Test commit")
+            assert result is True

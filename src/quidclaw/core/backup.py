@@ -112,3 +112,40 @@ class BackupManager:
 
     def remove_remote(self, name: str) -> None:
         self._run_git("remote", "remove", name)
+
+    # --- Daily Operations ---
+
+    def auto_commit(self, message: str) -> bool:
+        if not self.is_initialized():
+            return False
+        self._run_git("add", "-A")
+        result = self._run_git("diff", "--cached", "--quiet", check=False)
+        if result.returncode == 0:
+            return False  # No changes
+        self._run_git("commit", "-m", message)
+        return True
+
+    def _push_async(self, remote_name: str) -> None:
+        """Fire-and-forget push to a single remote."""
+        subprocess.Popen(
+            ["git", "push", remote_name],
+            cwd=self.data_dir,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    def auto_push(self) -> None:
+        if not self.is_initialized():
+            return
+        remotes = self.list_remotes()
+        for remote in remotes:
+            try:
+                self._push_async(remote["name"])
+            except OSError:
+                pass
+
+    def commit_and_push(self, message: str) -> bool:
+        if self.auto_commit(message):
+            self.auto_push()
+            return True
+        return False
