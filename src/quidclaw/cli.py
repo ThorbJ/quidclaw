@@ -29,6 +29,15 @@ def get_ledger() -> Ledger:
     return ledger
 
 
+def _try_backup(config: QuidClawConfig, message: str) -> None:
+    """Attempt git backup if initialized. Never raises."""
+    try:
+        from quidclaw.core.backup import try_backup
+        try_backup(config, message)
+    except Exception:
+        pass
+
+
 @click.group()
 @click.version_option(version="0.3.0")
 def main():
@@ -59,6 +68,7 @@ def init():
     click.echo("Created instruction files (CLAUDE.md, AGENTS.md, GEMINI.md, skills/quidclaw/SKILL.md)")
 
     click.echo(f"Initialized QuidClaw project in {config.data_dir}")
+    _try_backup(config, "Initialize QuidClaw data directory")
 
 
 @main.command()
@@ -81,6 +91,7 @@ def upgrade():
     _generate_instruction_files(config)
     click.echo("Updated instruction files (CLAUDE.md, AGENTS.md, GEMINI.md, skills/quidclaw/SKILL.md)")
     click.echo("Upgrade complete.")
+    _try_backup(config, "Upgrade QuidClaw workflows")
 
 
 @main.command("set-config")
@@ -111,6 +122,7 @@ def set_config(key, value):
         config.main_bean.write_text(content)
 
     click.echo(f"Set {key} = {value}")
+    _try_backup(config, f"Update config: {key}")
 
 
 @main.command("get-config")
@@ -149,6 +161,7 @@ def setup():
     created = initializer.init_with_template()
     if created:
         click.echo(f"Created {len(created)} default accounts ({operating})")
+        _try_backup(ledger.config, f"Set up default accounts ({operating})")
     else:
         click.echo("All default accounts already exist.")
 
@@ -168,6 +181,7 @@ def add_account(name, currencies, open_date):
     currency_list = [c.strip() for c in currencies.split(",")] if currencies else None
     mgr.add_account(name, currency_list, open_date)
     click.echo(f"Opened account {name}")
+    _try_backup(ledger.config, f"Add account: {name}")
 
 
 @main.command("close-account")
@@ -180,6 +194,7 @@ def close_account(name, close_date):
     mgr = AccountManager(ledger)
     mgr.close_account(name, close_date)
     click.echo(f"Closed account {name}")
+    _try_backup(ledger.config, f"Close account: {name}")
 
 
 @main.command("list-accounts")
@@ -215,6 +230,7 @@ def add_txn(date, payee, narration, posting, meta):
     metadata = json.loads(meta) if meta else None
     mgr.add_transaction(parsed_date, payee, narration, postings, metadata)
     click.echo(f"Recorded transaction: {date} {payee}")
+    _try_backup(ledger.config, f"Add transaction: {payee}")
 
 
 @main.command()
@@ -253,6 +269,8 @@ def balance_check(account, expected, currency):
     mgr = BalanceManager(ledger)
     ok, message = mgr.balance_check(account, Decimal(expected), currency)
     click.echo(message)
+    if ok:
+        _try_backup(ledger.config, f"Balance assertion: {account}")
     if not ok:
         sys.exit(1)
 
@@ -428,6 +446,7 @@ def add_commodity(name, source, quote, open_date):
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
     click.echo(f"Registered commodity {name} ({quote}:{source})")
+    _try_backup(ledger.config, f"Add commodity: {name}")
 
 
 @main.command("add-source")
@@ -469,6 +488,7 @@ def add_source(name, provider, api_key, inbox_id, username, display_name):
     click.echo(f"Added source '{name}' (provider: {provider})")
     if inbox:
         click.echo(f"  Inbox: {inbox}")
+    _try_backup(config, f"Add data source: {name}")
 
 
 @main.command("list-sources")
@@ -510,6 +530,7 @@ def remove_source(name, confirm):
     if data_dir.exists():
         click.echo(f"  Synced data preserved at: {data_dir}")
         click.echo(f"  Delete manually if no longer needed.")
+    _try_backup(config, f"Remove data source: {name}")
 
 
 @main.command("sync")
@@ -565,6 +586,11 @@ def sync(source_name, as_json):
         ]
         click.echo(json.dumps(output, indent=2))
 
+    total = sum(r.items_fetched for r in all_results)
+    if total > 0:
+        sources_str = ", ".join(r.source_name for r in all_results if r.items_fetched > 0)
+        _try_backup(config, f"Sync: {total} new items from {sources_str}")
+
     has_errors = any(r.errors for r in all_results)
     has_items = any(r.items_fetched > 0 for r in all_results)
     if has_errors and not has_items:
@@ -589,6 +615,7 @@ def mark_processed(source_name, email_dir):
         _yaml.dump(envelope, default_flow_style=False, allow_unicode=True)
     )
     click.echo(f"Marked {email_dir} as processed")
+    _try_backup(config, f"Mark processed: {source_name}/{email_dir}")
 
 
 @main.command("fetch-prices")
@@ -612,6 +639,7 @@ def fetch_prices(commodities, as_json):
                 click.echo(f"  {r['commodity']}: ERROR — {r['error']}", err=True)
             else:
                 click.echo(f"  {r['commodity']}: {r['price']} {r['currency']} ({r['date']})")
+    _try_backup(ledger.config, "Fetch prices")
 
 
 # --- Backup ---

@@ -593,6 +593,41 @@ class TestBackup:
         )
         assert result.exit_code != 0
 
+    def test_add_txn_triggers_backup(self, tmp_path):
+        import subprocess
+        runner = _init_project(tmp_path)
+        env = _env(tmp_path)
+        runner.invoke(main, ["backup", "init"], catch_exceptions=False, env=env)
+        posting1 = json.dumps({"account": "Expenses:Food", "amount": "50", "currency": "CNY"})
+        posting2 = json.dumps({"account": "Assets:Bank:Checking", "amount": "-50", "currency": "CNY"})
+        runner.invoke(
+            main, [
+                "add-txn", "--date", "2026-03-15", "--payee", "TestStore",
+                "--posting", posting1, "--posting", posting2,
+            ],
+            catch_exceptions=False, env=env,
+        )
+        log = subprocess.run(
+            ["git", "log", "--oneline"], cwd=tmp_path,
+            capture_output=True, text=True,
+        )
+        assert "TestStore" in log.stdout
+
+    def test_add_account_triggers_backup(self, tmp_path):
+        import subprocess
+        runner = _init_project(tmp_path)
+        env = _env(tmp_path)
+        runner.invoke(main, ["backup", "init"], catch_exceptions=False, env=env)
+        runner.invoke(
+            main, ["add-account", "Assets:Bank:Test:9999", "--currencies", "CNY"],
+            catch_exceptions=False, env=env,
+        )
+        log = subprocess.run(
+            ["git", "log", "--oneline"], cwd=tmp_path,
+            capture_output=True, text=True,
+        )
+        assert "Assets:Bank:Test:9999" in log.stdout
+
     def test_backup_init_requires_git(self, tmp_path):
         runner = _init_project(tmp_path)
         from unittest.mock import patch
