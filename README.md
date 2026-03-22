@@ -59,26 +59,31 @@ The AI reads the generated `CLAUDE.md`, understands the project structure, and u
 
 ## Quick Start
 
+### OpenClaw (recommended)
+
 ```bash
-pip install quidclaw    # requires Python 3.10–3.13
-mkdir ~/my-finances && cd ~/my-finances
-quidclaw init
-claude    # or: gemini, codex, cursor — any AI coding tool
+pip install quidclaw
+quidclaw init --platform openclaw
 ```
 
-That's it. The AI reads the generated `CLAUDE.md`, understands your financial project, and starts managing your finances. Start by saying hello — it will walk you through onboarding.
+This creates a dedicated financial agent. Connect it to Telegram, WhatsApp, or any supported chat app. The agent handles onboarding, daily routines, and monthly reports automatically.
 
-## Supported AI Tools
+### Claude Code
 
-| Tool | Instruction File | Status |
-|------|-----------------|--------|
-| Claude Code | `CLAUDE.md` | Supported |
-| Gemini CLI | `GEMINI.md` | Planned |
-| OpenAI Codex | `AGENTS.md` | Planned |
-| Cursor | `CLAUDE.md` | Works |
-| Any tool with Bash access | `CLAUDE.md` | Works |
+```bash
+pip install quidclaw
+mkdir ~/my-finances && cd ~/my-finances
+quidclaw init --platform claude-code
+claude
+```
 
-QuidClaw generates `CLAUDE.md` on `init`. Support for other instruction file formats (`GEMINI.md`, `AGENTS.md`) is planned — the workflow content is the same, only the filename and format differ.
+### Other AI Tools
+
+```bash
+pip install quidclaw
+mkdir ~/my-finances && cd ~/my-finances
+quidclaw init   # interactive platform selection
+```
 
 ## Usage Example
 
@@ -146,86 +151,11 @@ my-finances/
 └── reports/                   # Generated reports (AI-managed)
 ```
 
-## CLI Reference
+## CLI & Workflows
 
-31 commands for Beancount operations, data source management, and backup. The AI calls these via Bash. Most commands support `--json` for structured output.
+31 commands for accounting operations, data source management, and backup. 9 workflow guides for multi-step tasks. All designed for AI agents — the AI reads the instruction files and calls the CLI.
 
-### Setup
-
-| Command | Description |
-|---------|-------------|
-| `quidclaw init` | Initialize a new financial project in the current directory |
-| `quidclaw upgrade` | Upgrade workflow files and CLAUDE.md to latest version |
-| `quidclaw set-config KEY VALUE` | Set a configuration value |
-| `quidclaw get-config [KEY]` | Get configuration value(s) |
-| `quidclaw setup` | Interactive setup wizard |
-
-### Ledger Operations
-
-| Command | Description |
-|---------|-------------|
-| `quidclaw add-account NAME` | Open a new account (`--currencies`, `--date`) |
-| `quidclaw close-account NAME` | Close an account (`--date`) |
-| `quidclaw list-accounts` | List all accounts (`--type`, `--json`) |
-| `quidclaw add-txn` | Record a transaction (`--date`, `--payee`, `--narration`, `--posting`) |
-| `quidclaw balance` | Query account balances (`--account`, `--json`) |
-| `quidclaw balance-check ACCOUNT EXPECTED` | Reconciliation: assert an account balance (`--currency`, `--date`) |
-| `quidclaw query "SELECT ..."` | Execute a BQL query (`--json`) |
-| `quidclaw report income\|balance_sheet` | Generate a financial report (`--period`) |
-
-### Insights and Analysis
-
-| Command | Description |
-|---------|-------------|
-| `quidclaw monthly-summary YYYY MM` | Income, expenses, and savings for a month (`--json`) |
-| `quidclaw spending-by-category YYYY MM` | Ranked category breakdown for a month (`--json`) |
-| `quidclaw month-comparison YYYY MM` | Month-over-month comparison with percentages |
-| `quidclaw largest-txns YYYY MM` | Top N largest expense transactions (`--limit`) |
-| `quidclaw detect-anomalies` | Run all anomaly checks (`--json`) |
-
-### Data Management
-
-| Command | Description |
-|---------|-------------|
-| `quidclaw data-status` | Inbox count, last ledger update (`--json`) |
-| `quidclaw add-commodity NAME --source SOURCE` | Register a commodity for price tracking |
-| `quidclaw fetch-prices [COMMODITIES...]` | Fetch and record asset prices |
-
-### Data Sources
-
-| Command | Description |
-|---------|-------------|
-| `quidclaw add-source NAME --provider PROVIDER` | Configure an external data source |
-| `quidclaw list-sources` | List configured data sources |
-| `quidclaw remove-source NAME --confirm` | Remove a data source |
-| `quidclaw sync [SOURCE]` | Sync data from external sources |
-| `quidclaw mark-processed SOURCE DIR` | Mark synced email as processed |
-
-### Backup
-
-| Command | Description |
-|---------|-------------|
-| `quidclaw backup init` | Initialize Git backup for the data directory |
-| `quidclaw backup status` | Show backup status — remotes, last commit, LFS (`--json`) |
-| `quidclaw backup add-remote NAME URL` | Add a remote repository for backup (supports multiple) |
-| `quidclaw backup remove-remote NAME` | Remove a backup remote |
-| `quidclaw backup push` | Push to all remotes, or a specific one (`--remote NAME`) |
-
-## Workflows
-
-9 workflow guides that teach the AI how to handle complex multi-step tasks. Stored in `.quidclaw/workflows/` and auto-generated by `quidclaw init`.
-
-| Workflow | Trigger | What It Does |
-|----------|---------|-------------|
-| `onboarding.md` | First conversation with a new user | Interview-style discovery of the user's financial life. Everything goes to notes, nothing to ledger. |
-| `import-bills.md` | User drops files in inbox or uploads in chat | Parse bank statements/receipts, deduplicate, record transactions, archive source files. |
-| `reconcile.md` | Before any report or financial question | Verify data completeness — check for gaps, run balance assertions, flag discrepancies. |
-| `monthly-review.md` | User asks for a monthly summary or review | Generate plain-language financial report with trends, anomalies, and actionable insights. |
-| `detect-anomalies.md` | User asks to check for issues, or proactively | Scan for duplicate charges, subscription price changes, spending outliers, unknown merchants. |
-| `organize-documents.md` | Files accumulate in inbox | Sort and file documents from inbox into `documents/YYYY/MM/` with proper naming. |
-| `financial-memory.md` | User shares non-transaction financial info | Capture insurance policies, loan terms, salary changes, financial decisions into notes. |
-| `check-email.md` | Sync triggers new email from a source | Check email sources, process attachments, record with traceability metadata. |
-| `daily-routine.md` | User asks for routine check, or scheduled | Gather data from all sources, process new items, check reminders, anomaly scan. |
+See [docs/cli-reference.md](docs/cli-reference.md) for the complete command list.
 
 ## Development
 
