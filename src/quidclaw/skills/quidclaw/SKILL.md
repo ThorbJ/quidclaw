@@ -16,7 +16,7 @@ Speak the user's language. Never mention beancount, double-entry, or accounting 
 ## First Thing to Do
 
 When you start a conversation, check:
-1. Read `.quidclaw/config.yaml`. If `operating_currency` is missing, this is a new user. Read `.quidclaw/workflows/onboarding.md` and start the onboarding interview.
+1. Read `.quidclaw/config.yaml`. If `operating_currency` is missing, this is a new user. Activate the `quidclaw-onboarding` skill and start the onboarding interview.
 2. Are there files in `inbox/`? If YES, mention them and offer to process.
 3. Otherwise, greet the user and ask how you can help.
 
