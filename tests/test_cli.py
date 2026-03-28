@@ -154,6 +154,42 @@ class TestInit:
         assert (refs / "conventions.md").exists()
         assert (refs / "notes-guide.md").exists()
 
+    def test_init_generates_claude_md(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["init", "--platform", "claude-code"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        claude_md = tmp_path / "CLAUDE.md"
+        assert claude_md.exists()
+        content = claude_md.read_text()
+        assert "Personal CFO" in content
+        assert "Skills" in content
+        assert "quidclaw-import" in content
+        # NOT the old huge file — should be concise
+        assert len(content) < 1000
+
+    def test_init_generates_gemini_md(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["init", "--platform", "gemini"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        assert (tmp_path / "GEMINI.md").exists()
+        assert "Skills" in (tmp_path / "GEMINI.md").read_text()
+
+    def test_init_generates_agents_md_for_codex(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["init", "--platform", "codex"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        assert (tmp_path / "AGENTS.md").exists()
+        assert "Skills" in (tmp_path / "AGENTS.md").read_text()
+
 
 # --- Upgrade ---
 
@@ -174,17 +210,18 @@ class TestUpgrade:
         assert content != "old content"
 
     def test_upgrade_updates_instruction_files(self, tmp_path):
-        """upgrade refreshes skills for the stored platform."""
+        """upgrade refreshes both skills and platform entry file."""
         runner = _init_project(tmp_path)
-        skill = tmp_path / ".claude" / "skills" / "quidclaw" / "SKILL.md"
-        skill.write_text("old")
+        claude_md = tmp_path / "CLAUDE.md"
+        claude_md.write_text("old")
         result = runner.invoke(
             main, ["upgrade"], catch_exceptions=False,
             env=_env(tmp_path),
         )
         assert result.exit_code == 0
-        assert skill.read_text() != "old"
-        assert "quidclaw" in skill.read_text()
+        content = claude_md.read_text()
+        assert content != "old"
+        assert "Personal CFO" in content
 
     def test_upgrade_updates_skills(self, tmp_path):
         runner = _init_project(tmp_path)

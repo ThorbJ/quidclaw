@@ -50,6 +50,36 @@ def _install_skills(config: QuidClawConfig, platform: str) -> None:
             shutil.copytree(skill_dir, target, dirs_exist_ok=True)
 
 
+def _build_entry_file(config: QuidClawConfig) -> str:
+    """Build minimal platform entry file pointing to skills."""
+    currency = config.get_setting("operating_currency")
+    currency_line = (
+        f"- Operating currency: {currency}"
+        if currency
+        else "- Operating currency: not yet configured (run onboarding)"
+    )
+    return f"""\
+# QuidClaw — Personal CFO
+
+You are a personal CFO managing finances in this directory.
+Speak the user's language. Never mention beancount, double-entry, or accounting jargon.
+
+## Configuration
+
+{currency_line}
+- Config: `.quidclaw/config.yaml`
+
+## Skills
+
+QuidClaw capabilities are provided as Agent Skills:
+- `quidclaw` — Project overview, CLI reference, conventions
+- `quidclaw-onboarding` — New user setup interview
+- `quidclaw-import` — Import and process financial data
+- `quidclaw-daily` — Daily financial routine
+- `quidclaw-review` — Monthly review and reporting
+"""
+
+
 @click.group()
 @click.version_option(version="0.3.0")
 def main():
@@ -104,12 +134,15 @@ def init(platform):
     # Install skills
     _install_skills(config, platform)
 
-    # Generate platform-specific files
+    # Generate platform entry file
+    entry = _build_entry_file(config)
+    data_dir = Path(config.data_dir)
+
     if platform == "openclaw":
         from quidclaw.core.openclaw import OpenClawSetup
         setup = OpenClawSetup(config)
         setup.generate_templates()
-        setup.generate_agents_md()
+        setup.generate_agents_md(entry)
 
         # Auto-enable git backup
         from quidclaw.core.backup import BackupManager
@@ -128,6 +161,12 @@ def init(platform):
         else:
             click.echo("Note: openclaw CLI not found. After installing, run:")
             click.echo(f"  openclaw agents add quidclaw --workspace {config.data_dir}")
+    elif platform == "claude-code":
+        (data_dir / "CLAUDE.md").write_text(entry)
+    elif platform == "gemini":
+        (data_dir / "GEMINI.md").write_text(entry)
+    elif platform == "codex":
+        (data_dir / "AGENTS.md").write_text(entry)
 
     click.echo(f"Initialized QuidClaw project in {config.data_dir}")
     _try_backup(config, "Initialize QuidClaw data directory")
@@ -156,12 +195,25 @@ def upgrade():
 
     platform = config.get_setting("platform", "claude-code")
 
+    # Update platform entry file
+    entry = _build_entry_file(config)
+    data_dir = Path(config.data_dir)
+
     if platform == "openclaw":
         from quidclaw.core.openclaw import OpenClawSetup
         setup = OpenClawSetup(config)
         setup.generate_templates()
-        setup.generate_agents_md()
+        setup.generate_agents_md(entry)
         click.echo("Updated OpenClaw files")
+    elif platform == "claude-code":
+        (data_dir / "CLAUDE.md").write_text(entry)
+        click.echo("Updated CLAUDE.md")
+    elif platform == "gemini":
+        (data_dir / "GEMINI.md").write_text(entry)
+        click.echo("Updated GEMINI.md")
+    elif platform == "codex":
+        (data_dir / "AGENTS.md").write_text(entry)
+        click.echo("Updated AGENTS.md")
 
     click.echo("Upgrade complete.")
     _try_backup(config, "Upgrade QuidClaw workflows")

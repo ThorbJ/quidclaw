@@ -60,9 +60,10 @@ class OpenClawSetup:
             if src.exists():
                 dst.write_text(src.read_text())
 
-    def generate_agents_md(self) -> None:
-        """Generate AGENTS.md with OpenClaw automation section."""
-        (self.data_dir / "AGENTS.md").write_text(_AGENTS_AUTOMATION_SECTION)
+    def generate_agents_md(self, entry_content: str = "") -> None:
+        """Generate AGENTS.md with entry content + automation section."""
+        content = entry_content + _AGENTS_AUTOMATION_SECTION
+        (self.data_dir / "AGENTS.md").write_text(content)
 
     def create_agent(self) -> bool:
         """Create OpenClaw agent. Returns True if successful."""
