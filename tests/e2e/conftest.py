@@ -8,9 +8,23 @@ import pytest
 from click.testing import CliRunner
 from quidclaw.cli import main
 from quidclaw.config import QuidClawConfig
-from quidclaw.core.ledger import Ledger
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
+
+# Minimal set of accounts needed for E2E tests (import, query, reconcile, etc.)
+DEFAULT_TEST_ACCOUNTS = [
+    ("Assets:Bank:CMB:1234", "CNY"),
+    ("Assets:Cash", "CNY"),
+    ("Liabilities:CreditCard:CMB", "CNY"),
+    ("Income:Salary", None),
+    ("Expenses:Food", None),
+    ("Expenses:Transport", None),
+    ("Expenses:Shopping", None),
+    ("Expenses:Entertainment", None),
+    ("Expenses:Utilities", None),
+    ("Expenses:Other", None),
+    ("Equity:Opening-Balances", None),
+]
 
 
 @pytest.fixture
@@ -24,16 +38,15 @@ def data_dir(tmp_path):
 
 @pytest.fixture
 def data_dir_with_accounts(data_dir):
-    """Data directory with default accounts already created (via quidclaw init)."""
-    # quidclaw init already creates default accounts, so data_dir is sufficient.
-    # Verify accounts exist.
-    from quidclaw.core.ledger import Ledger
-    config = QuidClawConfig(data_dir=data_dir)
-    ledger = Ledger(config)
-    entries, errors, options = ledger.load()
-    from beancount.core import data as bdata
-    accounts = {e.account for e in entries if isinstance(e, bdata.Open)}
-    assert len(accounts) > 0, "data_dir_with_accounts should have accounts"
+    """Data directory with test accounts created via add-account CLI command."""
+    runner = CliRunner()
+    env = {"QUIDCLAW_DATA_DIR": str(data_dir)}
+    for name, currencies in DEFAULT_TEST_ACCOUNTS:
+        args = ["add-account", name]
+        if currencies:
+            args += ["--currencies", currencies]
+        result = runner.invoke(main, args, env=env)
+        assert result.exit_code == 0, f"Failed to create account {name}: {result.output}"
     return data_dir
 
 

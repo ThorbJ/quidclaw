@@ -25,9 +25,12 @@ class TestDataCompleteness:
         """If only partial data exists, AI should caveat its answer."""
         dd = data_dir_with_accounts
         copy_fixture_to_inbox(dd, "csv/cmb-credit-card-2026-03.csv")
-        run_claude("处理inbox的账单", dd)
 
-        result = run_claude("我2月花了多少钱？", dd)
+        # Single prompt: process inbox then answer about missing month
+        result = run_claude(
+            "先处理inbox的账单，然后告诉我2月花了多少钱？",
+            dd, timeout=600
+        )
 
         assert ai_mentioned(result,
             "没有", "缺少", "不完整", "no data", "missing",
@@ -39,7 +42,7 @@ class TestDataCompleteness:
         dd = data_dir_with_accounts
         copy_fixture_to_inbox(dd, "csv/cmb-credit-card-2026-03.csv")
 
-        result = run_claude("我这个月花了多少？", dd)
+        result = run_claude("我这个月花了多少？", dd, timeout=600)
 
         entries, _ = load_ledger(dd)
         txn_count = count_transactions(entries)
@@ -62,12 +65,12 @@ class TestBalanceReconciliation:
         """Import data then check with a deliberately wrong balance."""
         dd = data_dir_with_accounts
 
-        # Single combined prompt — import then check, avoids two slow calls
+        # Single combined prompt — import then check
         copy_fixture_to_inbox(dd, "csv/cmb-credit-card-2026-03.csv")
         result = run_claude(
             "先帮我处理inbox里的账单，然后帮我核对一下，"
             "我的银行卡余额应该是999999元，这个数字对吗？",
-            dd
+            dd, timeout=600
         )
 
         assert ai_mentioned(result,
