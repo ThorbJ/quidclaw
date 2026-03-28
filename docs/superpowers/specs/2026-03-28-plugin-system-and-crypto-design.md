@@ -8,9 +8,7 @@ On top of this skills foundation, a plugin system lets QuidClaw support non-univ
 
 ## Problem Statement
 
-1. **Workflows are passive.** The AI must be told to read a workflow file. There is no auto-discovery, no activation triggers, no progressive loading.
-2. **Platform fragmentation.** QuidClaw generates CLAUDE.md, GEMINI.md, and AGENTS.md with overlapping content. Maintenance burden grows with each new platform.
-3. **Feature bloat risk.** As QuidClaw expands (crypto, tax, enterprise), bundling everything into core creates dependency bloat, feature interference, and onboarding friction.
+As QuidClaw expands (crypto, tax, enterprise), bundling everything into core creates dependency bloat, feature interference, and onboarding friction. Different users need different features — a plugin system lets the core stay lean while supporting diverse needs.
 
 ## Design Goals
 
@@ -112,7 +110,18 @@ class QuidClawPlugin(ABC):
         return None
 ```
 
-Key change from previous spec: `get_workflows()` → `get_skills_dir()`. Returns a `Path` to the plugin's skills directory, which is copied to the user's skills directory during `upgrade`. Simpler than returning content strings — just point to the directory.
+Design notes:
+- `get_skills_dir()` returns a `Path` to the plugin's skills directory, copied to the user's skills directory during `init` and `upgrade`.
+- **Provider registration:** Plugins import their provider modules in `__init__`, triggering `@register_provider` at instantiation time. When `discover_plugins()` calls `plugin_cls()`, the providers register automatically. Example:
+
+```python
+class CryptoPlugin(QuidClawPlugin):
+    def __init__(self):
+        import quidclaw_crypto.providers.evm_explorer      # @register_provider fires
+        import quidclaw_crypto.providers.ccxt_exchange      # @register_provider fires
+```
+
+The built-in agentmail provider follows the same pattern: a single module-level `try: import quidclaw.core.sources.agentmail except ImportError: pass` in `cli.py` replaces the scattered lazy imports in `sync()` and `add_source()`.
 
 ## Plugin Discovery & Loading
 
@@ -167,10 +176,12 @@ load_plugins(main)
 quidclaw plugins                   # list installed plugins
 ```
 
-### Upgrade Integration
+### Plugin Skills Installation
+
+Both `init` and `upgrade` install plugin skills (same logic as core skills):
 
 ```python
-# upgrade command: after installing core skills
+# shared by init and upgrade — after installing core skills
 for plugin in discover_plugins():
     plugin_skills = plugin.get_skills_dir()
     if plugin_skills and plugin_skills.exists():
@@ -180,9 +191,31 @@ for plugin in discover_plugins():
                 shutil.copytree(skill_dir, target, dirs_exist_ok=True)
 ```
 
-### `add-source` Extension
+### Dynamic Entry File
 
-Add `--option KEY=VALUE` repeatable parameter **alongside** existing flags for extensibility. See Phase 1 spec for details.
+`_build_entry_file()` includes plugin skills in the skills list:
+
+```python
+# After listing core skills, append plugin skills
+for plugin in discover_plugins():
+    plugin_skills = plugin.get_skills_dir()
+    if plugin_skills and plugin_skills.exists():
+        for skill_dir in plugin_skills.iterdir():
+            if (skill_dir / "SKILL.md").exists():
+                # Read name from frontmatter
+                skills_list.append(f"- `{skill_dir.name}` — {plugin.description()}")
+```
+
+### Source Setup via Plugin Commands
+
+Plugins provide their own setup commands with proper flags, help text, and completion — NOT a generic `--option` parameter. Example:
+
+```bash
+quidclaw crypto add-exchange binance --api-key xxx --secret xxx
+quidclaw crypto add-wallet 0x1234 --chain ethereum --api-key xxx
+```
+
+Plugin commands call `config.add_source()` internally. The existing `quidclaw sync` and `quidclaw list-sources` work with any source regardless of how it was added.
 
 ## Crypto Plugin: `quidclaw-crypto`
 
@@ -280,10 +313,12 @@ include = ["src/quidclaw_crypto/**/*.py", "src/quidclaw_crypto/skills/**/*.md"]
 ### CLI Commands
 
 ```
-quidclaw crypto portfolio [--json]     # Aggregate crypto balances
+quidclaw crypto add-exchange NAME --exchange ID --api-key KEY --secret SECRET [--passphrase PP]
+quidclaw crypto add-wallet NAME --address ADDR --chain CHAIN [--api-key KEY]
+quidclaw crypto portfolio [--json]
 ```
 
-Minimal by design — most crypto operations are handled by the `quidclaw-crypto` skill + existing CLI commands.
+Setup commands (`add-exchange`, `add-wallet`) provide proper flags with help text. Internally they call `config.add_source()` with the correct provider config. `portfolio` aggregates balances across all crypto sources. Most crypto operations (interpreting transactions, recording to ledger) are handled by the `quidclaw-crypto` skill + existing CLI commands.
 
 ## Error Handling
 
