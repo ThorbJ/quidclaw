@@ -6,7 +6,7 @@
 
 ## 这是什么
 
-QuidClaw 是一个 AI 驱动的个人财务管理工具，基于 Beancount V3 记账引擎，所有数据以纯文本存储在你的本地。它不绑定任何 AI 平台——Claude Code、Gemini CLI、OpenAI Codex、Cursor，或者任何能执行 Shell 命令的 AI 工具都能用。对开发者零成本：用户自带 AI 订阅即可。
+QuidClaw 是一个 AI 驱动的个人财务管理工具，基于 Beancount V3 记账引擎，所有数据以纯文本存储在你的本地。它不绑定任何 AI 平台——Claude Code、Gemini CLI、OpenAI Codex、Cursor，或者任何支持 Agent Skills 的 AI 工具都能用。对开发者零成本：用户自带 AI 订阅即可。
 
 你不需要懂复式记账，不需要学 Beancount 语法。用自然语言说一句话，AI 就帮你搞定：
 
@@ -20,7 +20,7 @@ AI：已记录 — 2026-03-20 午餐 ¥45.00（微信 → 餐饮）
 - **隐私优先** — 所有数据存本地纯文本文件，没有云服务、没有遥测、没有数据外传
 - **数据自主** — 标准 Beancount 格式，可以用 git 版本管理，随时迁移
 - **零门槛** — 不需要学任何记账概念，自然语言交互
-- **不绑定平台** — 任何 AI 工具都能用，换工具不丢数据
+- **不绑定平台** — 技能安装到各平台原生目录，换工具不丢数据
 - **开发者友好** — CLI 接口，JSON 输出，方便集成
 
 ## 工作原理
@@ -29,7 +29,7 @@ AI：已记录 — 2026-03-20 午餐 ¥45.00（微信 → 餐饮）
 你 → 任何 AI 工具 → 读 CLAUDE.md → 调用 quidclaw CLI → Beancount 引擎 → 本地文件
 ```
 
-当你运行 `quidclaw init`，它会在当前目录生成一个完整的财务项目，包括 `CLAUDE.md` 指导文件和工作流指南。任何能读取项目指令的 AI 编程工具都能立即理解如何管理你的财务——记账、导入账单、生成报表、检测异常，全部自动化。AI 用 `quidclaw` CLI 处理账务操作，用自身的文件工具直接管理笔记、文档和收件箱。
+当你运行 `quidclaw init`，它会在当前目录生成一个完整的财务项目，安装 Agent Skills 到对应平台目录，并生成入口文件（如 `CLAUDE.md`）。任何支持 Agent Skills 的 AI 编程工具都能立即理解如何管理你的财务——记账、导入账单、生成报表、检测异常，全部自动化。AI 用 `quidclaw` CLI 处理账务操作，用自身的文件工具直接管理笔记、文档和收件箱。
 
 ## 功能一览
 
@@ -55,7 +55,7 @@ quidclaw init
 claude    # 或 gemini、codex、cursor——任何 AI 工具
 ```
 
-就这样。AI 会读取生成的 `CLAUDE.md`，理解项目结构，然后开始管理你的财务。
+就这样。AI 会读取入口文件，加载安装的技能，然后开始管理你的财务。
 
 ## 支持的 AI 工具
 
@@ -104,8 +104,9 @@ AI：检测到 2 个可疑项：
 
 ```
 my-finances/
-├── CLAUDE.md                # AI 指导文件（自动生成）
-├── .quidclaw/workflows/     # AI 工作流指南
+├── CLAUDE.md                # AI 入口文件（自动生成，指向技能）
+├── .claude/skills/          # Agent Skills（自动安装，5 个技能）
+├── .quidclaw/workflows/     # 旧版工作流指南（已弃用）
 ├── ledger/                  # Beancount 账本（结构化、已验证数据）
 │   ├── main.bean            #   主文件，include 所有子文件
 │   ├── accounts.bean        #   账户开关指令
@@ -139,8 +140,8 @@ my-finances/
 
 | 命令 | 说明 |
 |------|------|
-| `quidclaw init` | 在当前目录初始化财务项目 |
-| `quidclaw upgrade` | 升级工作流和指导文件到最新版 |
+| `quidclaw init` | 初始化财务项目：创建账本、安装技能、生成入口文件 |
+| `quidclaw upgrade` | 升级技能、旧版工作流和入口文件到最新版 |
 | `quidclaw set-config KEY VALUE` | 设置配置项 |
 | `quidclaw get-config [KEY]` | 查看配置项 |
 | `quidclaw setup` | 交互式配置向导 |
@@ -186,21 +187,17 @@ my-finances/
 | `quidclaw sync [SOURCE]` | 从外部数据源同步数据 |
 | `quidclaw mark-processed SOURCE DIR` | 标记已处理的邮件批次 |
 
-## 工作流（9 个）
+## Agent Skills（5 个）
 
-初始化后自动安装到 `.quidclaw/workflows/`，AI 按需读取执行：
+初始化后自动安装到平台目录（如 `.claude/skills/`），AI 按需加载执行：
 
-| 工作流 | 触发时机 | 说明 |
-|--------|----------|------|
-| `onboarding.md` | 新用户首次对话 | 问答式了解用户财务状况，内容记入笔记，不入账本 |
-| `import-bills.md` | 用户上传文件或把文件放入 inbox | 解析银行流水/收据，去重，入账，归档原始文件 |
-| `reconcile.md` | 生成报表前 | 检查数据完整性，执行余额断言，标记异常 |
-| `monthly-review.md` | 用户要求月度总结或回顾 | 生成白话财务报告，含趋势、异常和可操作建议 |
-| `detect-anomalies.md` | 用户要求检查或主动触发 | 扫描重复扣费、订阅变价、异常大额、未知商户 |
-| `organize-documents.md` | inbox 积累了文件 | 把文件归档到 documents/YYYY/MM/，按规则命名 |
-| `financial-memory.md` | 用户分享非交易类财务信息 | 把保险、贷款、薪资变动、财务决策记入笔记 |
-| `check-email.md` | 同步触发新邮件 | 检查邮箱数据源，处理附件，带可追溯元数据入账 |
-| `daily-routine.md` | 用户发起日常检查或定时触发 | 汇聚所有数据源，处理新内容，检查提醒，异常扫描 |
+| 技能 | 触发时机 | 说明 |
+|------|----------|------|
+| `quidclaw` | 所有交互 | 核心技能：项目结构 + CLI 命令参考 |
+| `quidclaw-onboarding` | 新用户首次对话 | 问答式了解用户财务状况，内容记入笔记，不入账本 |
+| `quidclaw-import` | 用户上传文件或把文件放入 inbox | 解析银行流水/收据，去重，入账，归档原始文件 |
+| `quidclaw-daily` | 用户发起日常检查或定时触发 | 汇聚所有数据源，处理新内容，检查提醒，异常扫描 |
+| `quidclaw-review` | 用户要求月度总结或回顾 | 月度财务分析 + 对账校验 |
 
 ## 开发
 

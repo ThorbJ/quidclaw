@@ -6,8 +6,8 @@ All commands support `--help`. Most support `--json` for structured AI-friendly 
 
 | Command | Purpose |
 |---------|---------|
-| `quidclaw init` | Initialize a new financial project in the current directory |
-| `quidclaw upgrade` | Upgrade workflow files and instruction files to latest version |
+| `quidclaw init` | Initialize a new financial project: creates ledger, installs skills to platform directory, copies legacy workflows, generates entry file |
+| `quidclaw upgrade` | Upgrade skills, legacy workflow files, and entry file to latest version |
 | `quidclaw set-config KEY VALUE` | Set a configuration value |
 | `quidclaw get-config [KEY]` | Get configuration values (`--json`) |
 | `quidclaw setup` | Create default accounts using configured operating currency |

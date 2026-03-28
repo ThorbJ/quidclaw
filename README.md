@@ -4,7 +4,7 @@ Zero-barrier personal CFO.
 
 **Local-first. Privacy by design. Your data never leaves your machine.**
 
-QuidClaw turns any AI coding tool into a personal finance manager. It combines a CLI for Beancount accounting operations with AI workflow guides, so the AI knows exactly how to record transactions, import bank statements, detect anomalies, and generate reports. You talk to your AI in natural language — in any language — and it handles the bookkeeping. Works with Claude Code, Gemini CLI, OpenAI Codex, Cursor, or anything else that can read a markdown file and run shell commands.
+QuidClaw turns any AI coding tool into a personal finance manager. It combines a CLI for Beancount accounting operations with Agent Skills (agentskills.io standard), so the AI knows exactly how to record transactions, import bank statements, detect anomalies, and generate reports. You talk to your AI in natural language — in any language — and it handles the bookkeeping. Works with Claude Code, Gemini CLI, OpenAI Codex, Cursor, or anything else that supports agent skills.
 
 > "I had lunch for $15, paid with my debit card"
 >
@@ -15,7 +15,7 @@ QuidClaw turns any AI coding tool into a personal finance manager. It combines a
 - **Privacy first** — Everything runs locally. No cloud, no telemetry, no third-party access. Your financial data is plain text files on your machine.
 - **You own your data** — Beancount plain text format. Version control with git. No vendor lock-in. Export, migrate, or audit anytime.
 - **Zero barrier** — Talk to your AI the way you talk to a friend. Say "I paid rent today, $2400" or "spent €30 on groceries" and it just works.
-- **Works with any AI** — Not locked to one tool. Claude Code today, Gemini CLI tomorrow. The workflows are portable markdown files.
+- **Works with any AI** — Not locked to one tool. Claude Code today, Gemini CLI tomorrow. Skills are installed to each platform's native directory.
 - **Real accounting engine** — Powered by Beancount V3 with double-entry bookkeeping, multi-currency support, and a query language (BQL).
 
 ## How It Works
@@ -38,7 +38,7 @@ QuidClaw turns any AI coding tool into a personal finance manager. It combines a
                    └─────────────────────────────────┘
 ```
 
-The AI reads the generated `CLAUDE.md`, understands the project structure, and uses the `quidclaw` CLI for accounting operations (transactions, balances, queries, reports). File operations — notes, document organization, inbox management — are handled directly by the AI using its native tools. Workflow guides (`.quidclaw/workflows/`) teach the AI how to handle complex multi-step tasks like onboarding, bill import, and reconciliation.
+The AI reads the generated entry file (e.g. `CLAUDE.md`), discovers the installed skills, and uses the `quidclaw` CLI for accounting operations (transactions, balances, queries, reports). File operations — notes, document organization, inbox management — are handled directly by the AI using its native tools. Five Agent Skills teach the AI how to handle complex multi-step tasks like onboarding, bill import, daily routines, and financial review.
 
 ## Features
 
@@ -106,7 +106,7 @@ AI:    Done. [runs quidclaw add-txn ...]
        Recorded: 2026-03-20 Lunch $15.00 (Assets:Bank:Checking → Expenses:Food:Dining)
 
 You:   Put my bank statement in the inbox, help me import it
-AI:    [reads .quidclaw/workflows/import-bills.md]
+AI:    [loads the quidclaw-import skill]
        [scans inbox/, parses the CSV, deduplicates, records 47 transactions]
        Found 52 transactions in the statement. 5 were already recorded.
        Imported 47 new transactions totaling $3,892.10.
@@ -116,16 +116,15 @@ AI:    [reads .quidclaw/workflows/import-bills.md]
 
 ```
 my-finances/
-├── CLAUDE.md                  # AI instructions (auto-generated)
+├── CLAUDE.md                  # AI entry file (auto-generated, points to skills)
+├── .claude/skills/            # Agent Skills (auto-installed)
+│   ├── quidclaw.md            #   Core: project structure + CLI reference
+│   ├── quidclaw-onboarding.md #   New user interview
+│   ├── quidclaw-import.md     #   Parse and import documents
+│   ├── quidclaw-daily.md      #   Daily financial check-in
+│   └── quidclaw-review.md     #   Monthly review + reconciliation
 ├── .quidclaw/
-│   └── workflows/             # AI workflow guides (auto-generated)
-│       ├── onboarding.md
-│       ├── import-bills.md
-│       ├── reconcile.md
-│       ├── monthly-review.md
-│       ├── detect-anomalies.md
-│       ├── organize-documents.md
-│       └── financial-memory.md
+│   └── workflows/             # Legacy workflow guides (deprecated)
 ├── ledger/                    # Beancount ledger (structured, verified)
 │   ├── main.bean              #   includes all other files
 │   ├── accounts.bean          #   Open/Close directives
@@ -153,7 +152,7 @@ my-finances/
 
 ## CLI & Workflows
 
-31 commands for accounting operations, data source management, and backup. 9 workflow guides for multi-step tasks. All designed for AI agents — the AI reads the instruction files and calls the CLI.
+31 commands for accounting operations, data source management, and backup. 5 Agent Skills for multi-step tasks. All designed for AI agents — the AI loads the skills and calls the CLI.
 
 See [docs/cli-reference.md](docs/cli-reference.md) for the complete command list.
 

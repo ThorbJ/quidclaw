@@ -11,8 +11,8 @@ QuidClaw follows a strict two-layer separation:
 │                      AI Tool Layer                       │
 │         (Claude Code, Gemini CLI, Codex, etc.)           │
 │                                                          │
-│  Reads CLAUDE.md ──► Understands project structure       │
-│  Reads workflows ──► Follows step-by-step guides         │
+│  Reads CLAUDE.md ──► Discovers installed skills           │
+│  Loads skills ──► Follows step-by-step guides             │
 │  Calls quidclaw CLI ──► Accounting operations            │
 │  Uses native tools ──► File I/O (notes, inbox, docs)     │
 └────────────────────────┬─────────────────────────────────┘
@@ -106,7 +106,8 @@ No business logic lives here. If a feature can be implemented without changing `
 | File | Purpose |
 |------|---------|
 | `config.py` | `QuidClawConfig` dataclass — all path derivations from data directory |
-| `workflows/*.md` | Bundled workflow guides, copied to user project at init/upgrade |
+| `skills/` | Agent Skills (agentskills.io standard), installed to platform directories at init/upgrade |
+| `workflows/*.md` | Legacy workflow guides (deprecated), copied to `.quidclaw/workflows/` for backwards compatibility |
 
 ## Component Collaboration Flow
 
@@ -121,10 +122,10 @@ A typical user interaction follows this path:
 3. AI reads CLAUDE.md
    ├── Understands directory structure
    ├── Knows available CLI commands
-   └── Knows where to find workflows
+   └── Discovers installed skills
        │
        ▼
-4. AI reads .quidclaw/workflows/import-bills.md
+4. AI loads the quidclaw-import skill
    └── Gets step-by-step instructions for bill import
        │
        ▼
@@ -184,18 +185,15 @@ QuidClaw uses a directory-as-project model (like git). The data directory is the
 
 ```
 my-finances/                       # Data directory root
-├── CLAUDE.md                      # AI instruction file (generated)
+├── CLAUDE.md                      # AI entry file (generated, points to skills)
+├── .claude/skills/                # Agent Skills (agentskills.io, 5 skills)
+│   ├── quidclaw.md               #   Core skill: project structure + CLI reference
+│   ├── quidclaw-onboarding.md    #   New user interview
+│   ├── quidclaw-import.md        #   Parse and import documents
+│   ├── quidclaw-daily.md         #   Daily financial check-in
+│   └── quidclaw-review.md        #   Monthly financial analysis + reconciliation
 ├── .quidclaw/
-│   └── workflows/                 # AI workflow guides (9 files)
-│       ├── onboarding.md          #   New user interview
-│       ├── import-bills.md        #   Parse and import documents
-│       ├── reconcile.md           #   Verify data accuracy
-│       ├── monthly-review.md      #   Monthly financial analysis
-│       ├── detect-anomalies.md    #   Suspicious pattern scan
-│       ├── organize-documents.md  #   Sort inbox into documents/
-│       ├── financial-memory.md    #   Capture non-transaction info
-│       ├── check-email.md         #   Process synced emails
-│       └── daily-routine.md       #   Daily financial check-in
+│   └── workflows/                 # Legacy workflow guides (deprecated)
 │
 ├── ledger/                        # Beancount ledger (structured data)
 │   ├── main.bean                  #   Root file, includes everything
@@ -244,7 +242,7 @@ The email sync path uses the data sources subsystem and audit logger:
    ├── body.txt
    └── attachments/
 
-4. AI reads .quidclaw/workflows/check-email.md
+4. AI loads the quidclaw-import skill
    └── Gets step-by-step instructions for email processing
 
 5. AI processes each email:
@@ -304,7 +302,7 @@ The original QuidClaw used MCP (Model Context Protocol) as its interface. The CL
 1. **Universality** — Any AI tool that can run shell commands works. MCP requires explicit protocol support.
 2. **Simplicity** — A Click CLI is debuggable, scriptable, and testable without an AI.
 3. **File operations handled by AI** — Notes, inbox, and documents are just files. AI tools already have file I/O. No need to wrap every file operation in a tool.
-4. **CLAUDE.md as the interface** — The instruction file teaches any AI how to use the CLI. No protocol negotiation needed.
+4. **Skills as the interface** — Agent Skills (agentskills.io standard) teach any AI how to use the CLI. A minimal entry file (CLAUDE.md, GEMINI.md, etc.) points the AI to the installed skills. No protocol negotiation needed.
 
 ### Why directory-as-project?
 
@@ -326,7 +324,7 @@ The two-layer architecture has a clear division of responsibility:
 - Parsing and interpreting documents (PDFs, CSVs, images, emails)
 - Deciding how to categorize transactions
 - Interacting with the user (onboarding, confirmations, explanations)
-- Orchestrating multi-step workflows
+- Orchestrating multi-step tasks via skills
 
 **Rule of thumb**: if it requires understanding what data *means*, it belongs in the AI layer. If it's moving data or doing math, it belongs in CLI/Core.
 
