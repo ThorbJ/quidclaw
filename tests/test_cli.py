@@ -889,3 +889,37 @@ class TestPlugins:
         )
         assert result.exit_code == 0
         assert "No plugins installed" in result.output
+
+
+# --- Entry File ---
+
+
+class TestEntryFile:
+    def test_entry_file_includes_plugin_skills(self, tmp_path):
+        """Entry file should list plugin skills."""
+        from unittest.mock import patch
+        from quidclaw.core.plugins import QuidClawPlugin
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as skill_src:
+            skill_dir = Path(skill_src) / "quidclaw-fake"
+            skill_dir.mkdir()
+            (skill_dir / "SKILL.md").write_text("---\nname: quidclaw-fake\ndescription: Fake\n---\n")
+
+            class FakePlugin(QuidClawPlugin):
+                @staticmethod
+                def name(): return "fake"
+                @staticmethod
+                def description(): return "Fake plugin"
+                def get_skills_dir(self):
+                    return Path(skill_src)
+
+            runner = CliRunner()
+            with patch("quidclaw.core.plugins.discover_plugins", return_value=[FakePlugin()]):
+                result = runner.invoke(
+                    main, ["init", "--platform", "claude-code"],
+                    catch_exceptions=False, env=_env(tmp_path),
+                )
+            assert result.exit_code == 0
+            content = (tmp_path / "CLAUDE.md").read_text()
+            assert "quidclaw-fake" in content

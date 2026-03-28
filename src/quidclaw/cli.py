@@ -72,12 +72,34 @@ def _install_plugin_skills(config: QuidClawConfig, platform: str) -> None:
 
 def _build_entry_file(config: QuidClawConfig) -> str:
     """Build minimal platform entry file pointing to skills."""
+    from quidclaw.core.plugins import discover_plugins
+
     currency = config.get_setting("operating_currency")
     currency_line = (
         f"- Operating currency: {currency}"
         if currency
         else "- Operating currency: not yet configured (run onboarding)"
     )
+
+    skills_lines = [
+        "- `quidclaw` — Project overview, CLI reference, conventions",
+        "- `quidclaw-onboarding` — New user setup interview",
+        "- `quidclaw-import` — Import and process financial data",
+        "- `quidclaw-daily` — Daily financial routine",
+        "- `quidclaw-review` — Monthly review and reporting",
+    ]
+
+    for plugin in discover_plugins():
+        plugin_skills = plugin.get_skills_dir()
+        if plugin_skills and plugin_skills.exists():
+            for skill_dir in plugin_skills.iterdir():
+                if skill_dir.is_dir() and (skill_dir / "SKILL.md").exists():
+                    skills_lines.append(
+                        f"- `{skill_dir.name}` — {plugin.description()}"
+                    )
+
+    skills_block = "\n".join(skills_lines)
+
     return f"""\
 # QuidClaw — Personal CFO
 
@@ -92,11 +114,7 @@ Speak the user's language. Never mention beancount, double-entry, or accounting 
 ## Skills
 
 QuidClaw capabilities are provided as Agent Skills:
-- `quidclaw` — Project overview, CLI reference, conventions
-- `quidclaw-onboarding` — New user setup interview
-- `quidclaw-import` — Import and process financial data
-- `quidclaw-daily` — Daily financial routine
-- `quidclaw-review` — Monthly review and reporting
+{skills_block}
 """
 
 
