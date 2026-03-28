@@ -38,6 +38,19 @@ def _try_backup(config: QuidClawConfig, message: str) -> None:
         pass
 
 
+def _install_skills(config: QuidClawConfig, platform: str) -> None:
+    """Copy bundled skills to the platform-appropriate skills directory."""
+    skills_source = Path(__file__).parent / "skills"
+    if not skills_source.exists():
+        return
+    skills_dir_name = PLATFORM_SKILLS_DIR.get(platform, ".agents/skills")
+    skills_target = Path(config.data_dir) / skills_dir_name
+    for skill_dir in skills_source.iterdir():
+        if skill_dir.is_dir() and (skill_dir / "SKILL.md").exists():
+            target = skills_target / skill_dir.name
+            shutil.copytree(skill_dir, target, dirs_exist_ok=True)
+
+
 @click.group()
 @click.version_option(version="0.3.0")
 def main():
@@ -49,6 +62,13 @@ def main():
 
 
 PLATFORMS = ["openclaw", "claude-code", "gemini", "codex"]
+
+PLATFORM_SKILLS_DIR = {
+    "openclaw": ".claude/skills",
+    "claude-code": ".claude/skills",
+    "gemini": ".gemini/skills",
+    "codex": ".agents/skills",
+}
 
 
 @main.command()
@@ -81,6 +101,9 @@ def init(platform):
 
     # Store platform choice
     config.set_setting("platform", platform)
+
+    # Install skills
+    _install_skills(config, platform)
 
     # Generate platform-specific files
     body = _build_instruction_body(config)
@@ -138,6 +161,10 @@ def upgrade():
         for f in workflows_dir.glob("*.md"):
             shutil.copy2(f, target_dir / f.name)
         click.echo(f"Updated workflows in {target_dir}")
+
+    # Update skills
+    _install_skills(config, config.get_setting("platform", "claude-code"))
+    click.echo("Updated skills")
 
     if config.main_bean.exists():
         ledger = Ledger(config)
