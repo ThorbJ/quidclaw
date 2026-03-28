@@ -11,6 +11,12 @@ import click
 from quidclaw.config import QuidClawConfig
 from quidclaw.core.ledger import Ledger
 
+# Register built-in providers
+try:
+    import quidclaw.core.sources.agentmail  # noqa: F401
+except ImportError:
+    pass
+
 
 def get_config() -> QuidClawConfig:
     """Get config from current directory or QUIDCLAW_DATA_DIR."""
@@ -50,14 +56,50 @@ def _install_skills(config: QuidClawConfig, platform: str) -> None:
             shutil.copytree(skill_dir, target, dirs_exist_ok=True)
 
 
+def _install_plugin_skills(config: QuidClawConfig, platform: str) -> None:
+    """Copy skills from installed plugins to the platform skills directory."""
+    from quidclaw.core.plugins import discover_plugins
+    skills_dir_name = PLATFORM_SKILLS_DIR.get(platform, ".agents/skills")
+    skills_target = Path(config.data_dir) / skills_dir_name
+    for plugin in discover_plugins():
+        plugin_skills = plugin.get_skills_dir()
+        if plugin_skills and plugin_skills.exists():
+            for skill_dir in plugin_skills.iterdir():
+                if skill_dir.is_dir() and (skill_dir / "SKILL.md").exists():
+                    target = skills_target / skill_dir.name
+                    shutil.copytree(skill_dir, target, dirs_exist_ok=True)
+
+
 def _build_entry_file(config: QuidClawConfig) -> str:
     """Build minimal platform entry file pointing to skills."""
+    from quidclaw.core.plugins import discover_plugins
+
     currency = config.get_setting("operating_currency")
     currency_line = (
         f"- Operating currency: {currency}"
         if currency
         else "- Operating currency: not yet configured (run onboarding)"
     )
+
+    skills_lines = [
+        "- `quidclaw` — Project overview, CLI reference, conventions",
+        "- `quidclaw-onboarding` — New user setup interview",
+        "- `quidclaw-import` — Import and process financial data",
+        "- `quidclaw-daily` — Daily financial routine",
+        "- `quidclaw-review` — Monthly review and reporting",
+    ]
+
+    for plugin in discover_plugins():
+        plugin_skills = plugin.get_skills_dir()
+        if plugin_skills and plugin_skills.exists():
+            for skill_dir in plugin_skills.iterdir():
+                if skill_dir.is_dir() and (skill_dir / "SKILL.md").exists():
+                    skills_lines.append(
+                        f"- `{skill_dir.name}` — {plugin.description()}"
+                    )
+
+    skills_block = "\n".join(skills_lines)
+
     return f"""\
 # QuidClaw — Personal CFO
 
@@ -72,11 +114,7 @@ Speak the user's language. Never mention beancount, double-entry, or accounting 
 ## Skills
 
 QuidClaw capabilities are provided as Agent Skills:
-- `quidclaw` — Project overview, CLI reference, conventions
-- `quidclaw-onboarding` — New user setup interview
-- `quidclaw-import` — Import and process financial data
-- `quidclaw-daily` — Daily financial routine
-- `quidclaw-review` — Monthly review and reporting
+{skills_block}
 """
 
 
@@ -125,6 +163,7 @@ def init(platform):
 
     # Install skills
     _install_skills(config, platform)
+    _install_plugin_skills(config, platform)
 
     # Generate platform entry file
     entry = _build_entry_file(config)
@@ -171,6 +210,7 @@ def upgrade():
 
     # Update skills
     _install_skills(config, config.get_setting("platform", "claude-code"))
+    _install_plugin_skills(config, config.get_setting("platform", "claude-code"))
     click.echo("Updated skills")
 
     if config.main_bean.exists():
@@ -643,10 +683,6 @@ def add_commodity(name, source, quote, open_date):
 @click.option("--display-name", default=None, help="Display name for the inbox")
 def add_source(name, provider, api_key, inbox_id, username, display_name):
     """Add a new data source."""
-    try:
-        import quidclaw.core.sources.agentmail  # noqa: F401 — registers provider
-    except ImportError:
-        pass
     from quidclaw.core.sources.registry import create_source
     config = get_config()
     source_config = {"provider": provider, "enabled": True}
@@ -723,10 +759,6 @@ def remove_source(name, confirm):
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 def sync(source_name, as_json):
     """Sync data from external sources."""
-    try:
-        import quidclaw.core.sources.agentmail  # noqa: F401 — registers provider
-    except ImportError:
-        pass
     from quidclaw.core.sources.registry import create_source
     config = get_config()
     sources = config.get_sources()
@@ -947,4 +979,27 @@ def backup_push(remote):
                 click.echo(f"Pushed to '{r['name']}'.")
             except _sp.CalledProcessError as e:
                 click.echo(f"Error pushing to '{r['name']}': {e.stderr.strip()}", err=True)
+
+
+
+
+# --- Plugins ---
+
+
+@main.command("plugins")
+def list_plugins():
+    """List installed plugins."""
+    from quidclaw.core.plugins import discover_plugins
+    plugins = discover_plugins()
+    if not plugins:
+        click.echo("No plugins installed. Install with: pip install quidclaw-<name>")
+        return
+    for plugin in plugins:
+        click.echo(f"  {plugin.name()} — {plugin.description()}")
+
+
+# --- Plugin Loading ---
+
+from quidclaw.core.plugins import load_plugins
+load_plugins(main)
 
