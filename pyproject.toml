@@ -50,7 +50,13 @@ packages = ["src/quidclaw"]
 include = ["src/quidclaw/**"]
 
 [tool.hatch.build]
-include = ["src/quidclaw/**/*.py", "src/quidclaw/templates/*.md", "src/quidclaw/workflows/*.md"]
+include = [
+    "src/quidclaw/**/*.py",
+    "src/quidclaw/skills/**/SKILL.md",
+    "src/quidclaw/skills/**/references/*.md",
+    "src/quidclaw/templates/*.md",
+    "src/quidclaw/workflows/*.md",
+]
 
 [tool.pytest.ini_options]
 markers = [
