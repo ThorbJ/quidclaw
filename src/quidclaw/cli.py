@@ -948,6 +948,22 @@ def backup_push(remote):
 
 
 
+
+# --- Plugins ---
+
+
+@main.command("plugins")
+def list_plugins():
+    """List installed plugins."""
+    from quidclaw.core.plugins import discover_plugins
+    plugins = discover_plugins()
+    if not plugins:
+        click.echo("No plugins installed. Install with: pip install quidclaw-<name>")
+        return
+    for plugin in plugins:
+        click.echo(f"  {plugin.name()} — {plugin.description()}")
+
+
 # --- Plugin Loading ---
 
 from quidclaw.core.plugins import load_plugins

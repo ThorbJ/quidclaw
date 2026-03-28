@@ -846,3 +846,17 @@ class TestBackup:
             )
         assert result.exit_code != 0
         assert "git" in result.output.lower()
+
+
+# --- Plugins ---
+
+
+class TestPlugins:
+    def test_plugins_no_plugins(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["plugins"], catch_exceptions=False,
+            env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        assert "No plugins installed" in result.output
