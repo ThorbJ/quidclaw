@@ -27,3 +27,6 @@ htmlcov/
 
 # Claude Code (local settings)
 .claude/
+
+# Specs and plans (local design docs, not shipped)
+docs/superpowers/
