@@ -2,7 +2,7 @@
 
 ## Overview
 
-QuidClaw's AI capabilities are currently delivered as platform-specific instruction files (CLAUDE.md, GEMINI.md, AGENTS.md) plus passive workflow markdown files. This spec replaces that with the open Agent Skills standard (agentskills.io), adopted by 30+ agents (Claude Code, Gemini CLI, Codex CLI, Cursor, GitHub Copilot, etc.).
+QuidClaw's AI capabilities are delivered as Agent Skills (agentskills.io standard), adopted by 30+ agents (Claude Code, Gemini CLI, Codex CLI, Cursor, GitHub Copilot, etc.). Phase 1 (skills conversion) is complete; this spec now tracks Phase 2 (plugin system).
 
 On top of this skills foundation, a plugin system lets QuidClaw support non-universal features (crypto, tax, enterprise) without bloating the core.
 
@@ -29,355 +29,32 @@ On top of this skills foundation, a plugin system lets QuidClaw support non-univ
 
 ---
 
-# Phase 1: Workflow → Agent Skills
+# Phase 1: Workflow → Agent Skills — COMPLETE
 
-## Agent Skills Standard (Summary)
+Phase 1 is done. 5 core skills implemented, workflows deleted, `_build_instruction_body()` removed. `init` installs skills + generates minimal entry file. `upgrade` updates both.
 
-Each skill is a directory containing a `SKILL.md` with YAML frontmatter:
+### Core Skills
 
-```
-skill-name/
-  SKILL.md           # Required: frontmatter + markdown body
-  references/        # Optional: loaded on-demand when SKILL.md references them
-  scripts/           # Optional: executable code
-  assets/            # Optional: templates, resources
-```
+| Skill | Body tokens | References |
+|-------|------------|------------|
+| `quidclaw` | ~300 | cli-reference, conventions, notes-guide |
+| `quidclaw-onboarding` | ~3000 | email-setup, backup-setup, automation-setup |
+| `quidclaw-import` | ~2000 | email-processing, document-archival |
+| `quidclaw-daily` | ~500 | import-steps, anomaly-steps |
+| `quidclaw-review` | ~800 | reconciliation, anomaly-detection |
 
-Loading is progressive:
-1. **Startup (~100 tokens/skill):** Only `name` + `description` from frontmatter
-2. **Activation (<5000 tokens):** Full SKILL.md body when the agent decides the skill is relevant
-3. **References (as needed):** Files in `references/` loaded only when SKILL.md explicitly tells the agent to read them
-
-The `name` field must match the directory name. Lowercase letters, numbers, hyphens only. 1-64 characters.
-
-**Installation paths:** Each agent scans its own directory (`.claude/skills/`, `.gemini/skills/`, `.agents/skills/`, etc.). The cross-platform convention is `.agents/skills/` — tools like `npx skills add` install there and symlink to agent-specific directories. QuidClaw's `init` command installs to the platform-appropriate directory based on the `--platform` flag (e.g., `.claude/skills/` for `--platform claude-code`). `upgrade` uses the stored platform setting.
-
-## Current State → Target State
-
-| Current | Target |
-|---------|--------|
-| `_build_instruction_body()` generates CLAUDE.md / GEMINI.md / AGENTS.md | `quidclaw` master skill + references |
-| `src/quidclaw/workflows/onboarding.md` (355 lines) | `quidclaw-onboarding` skill + 3 references |
-| `src/quidclaw/workflows/import-bills.md` (139 lines) | `quidclaw-import` skill + 2 references |
-| `src/quidclaw/workflows/check-email.md` (104 lines) | → reference under `quidclaw-import` |
-| `src/quidclaw/workflows/organize-documents.md` (54 lines) | → reference under `quidclaw-import` |
-| `src/quidclaw/workflows/daily-routine.md` (68 lines) | `quidclaw-daily` skill |
-| `src/quidclaw/workflows/monthly-review.md` (61 lines) | `quidclaw-review` skill + 2 references |
-| `src/quidclaw/workflows/detect-anomalies.md` (44 lines) | → reference under `quidclaw-review` |
-| `src/quidclaw/workflows/reconcile.md` (43 lines) | → reference under `quidclaw-review` |
-| `src/quidclaw/workflows/financial-memory.md` (162 lines) | → reference under `quidclaw` |
-
-## Skill Classification Rationale
-
-**What becomes an independent skill:** operations a user would directly trigger.
-**What becomes a reference:** sub-details that only matter within a parent skill's context.
-
-| Current workflow | Decision | Reason |
-|-----------------|----------|--------|
-| onboarding | **Skill** | User triggers: "I'm new" / "set me up" |
-| import-bills | **Skill** | User triggers: "import bills" / "process inbox" |
-| check-email | Reference of `quidclaw-import` | Email is one import source, not an independent action |
-| organize-documents | Reference of `quidclaw-import` | Document archival is the final step of import |
-| daily-routine | **Skill** | User triggers: "daily check" / scheduled via cron |
-| monthly-review | **Skill** | User triggers: "monthly report" / scheduled |
-| detect-anomalies | Reference of `quidclaw-review` | Anomaly detection is one analysis within review |
-| reconcile | Reference of `quidclaw-review` | Reconciliation is a pre-check before review |
-| financial-memory | Reference of `quidclaw` | Notes structure guide, not independently triggered |
-
-## Core Skills (5 total)
-
-### 1. `quidclaw` — Master Skill
-
-The entry point. Loaded when the agent enters a QuidClaw project.
-
-```
-quidclaw/
-  SKILL.md
-  references/
-    cli-reference.md
-    conventions.md
-    notes-guide.md
-```
-
-**SKILL.md frontmatter:**
-
-```yaml
----
-name: quidclaw
-description: >
-  Personal CFO — AI-powered financial management via Beancount.
-  Use when working in a QuidClaw project directory (has .quidclaw/ and ledger/).
-  On first conversation, check .quidclaw/config.yaml: if operating_currency
-  is missing, activate quidclaw-onboarding. If inbox/ has files, offer to
-  process them.
----
-```
-
-**SKILL.md body (~300 tokens):** Role definition ("You are a personal CFO..."), directory structure overview, first-thing-to-do routing logic, pointers to references.
-
-- "Read `references/cli-reference.md` when you need to run a QuidClaw CLI command."
-- "Read `references/conventions.md` when recording transactions or creating accounts."
-- "Read `references/notes-guide.md` when capturing financial context outside the ledger."
-
-**references/cli-reference.md:** Full CLI command list with examples. Currently embedded in `_build_instruction_body()`, extracted verbatim.
-
-**references/conventions.md:** Accounting conventions, file naming, account naming patterns. Currently the `## Conventions` section of the instruction body.
-
-**references/notes-guide.md:** Content from `financial-memory.md` — notes directory structure, living documents vs append-only logs, formatting standards.
-
-### 2. `quidclaw-onboarding` — New User Setup
-
-```
-quidclaw-onboarding/
-  SKILL.md
-  references/
-    email-setup.md
-    backup-setup.md
-    automation-setup.md
-```
-
-**SKILL.md frontmatter:**
-
-```yaml
----
-name: quidclaw-onboarding
-description: >
-  New user onboarding interview for QuidClaw. Guides through a multi-phase
-  conversation to understand the user's financial life, then initializes
-  accounts and notes. Use when operating_currency is not set in config, or
-  user asks to set up / start fresh.
----
-```
-
-**SKILL.md body (~3000 tokens):** Core interview phases 1-10 (language selection through profile save). This is the longest skill body but justified — the onboarding interview is a single continuous flow that cannot be split without losing coherence.
-
-- "After completing the interview, read `references/email-setup.md` if the user wants email integration."
-- "Read `references/backup-setup.md` to set up Git backup."
-- "Read `references/automation-setup.md` to configure scheduled tasks."
-
-**references/email-setup.md:** AgentMail integration setup (Phase 9.5 from onboarding.md).
-
-**references/backup-setup.md:** Git backup initialization and remote configuration (Phase 11).
-
-**references/automation-setup.md:** Cron job setup for daily/monthly tasks (Phase 12). **Content must be updated** — the current `onboarding.md` hardcodes `--message "Follow .quidclaw/workflows/daily-routine.md"`. This must change to reference skills (e.g., `--message "Run /quidclaw-daily"` or the equivalent skill invocation syntax for the user's platform).
-
-### 3. `quidclaw-import` — Data Import & Processing
-
-```
-quidclaw-import/
-  SKILL.md
-  references/
-    email-processing.md
-    document-archival.md
-```
-
-**SKILL.md frontmatter:**
-
-```yaml
----
-name: quidclaw-import
-description: >
-  Import and process financial data into the ledger. Handles files in inbox/,
-  email attachments, and synced source data. Parses, deduplicates, confirms
-  with user, records transactions, and archives originals. Use when user says
-  "import", "process inbox", "check email", or when inbox/ has unprocessed files.
----
-```
-
-**SKILL.md body (~2000 tokens):** Core 7-step import flow from `import-bills.md` (identify → parse → dedup → confirm → record → archive → log).
-
-- "If processing email sources, read `references/email-processing.md` for email-specific steps."
-- "After recording transactions, read `references/document-archival.md` to organize source files."
-
-**references/email-processing.md:** Content from `check-email.md` — sync from email sources, extract attachments, mark processed.
-
-**references/document-archival.md:** Content from `organize-documents.md` — classify files, apply naming convention, move to `documents/YYYY/MM/`.
-
-### 4. `quidclaw-daily` — Daily Financial Routine
-
-```
-quidclaw-daily/
-  SKILL.md
-  references/
-    import-steps.md
-    anomaly-steps.md
-```
-
-**SKILL.md frontmatter:**
-
-```yaml
----
-name: quidclaw-daily
-description: >
-  Daily financial routine. Syncs all sources, processes new data, checks for
-  anomalies, and provides a concise briefing. Use when user says "daily check",
-  "what's new today", or as a scheduled daily task.
----
-```
-
-**SKILL.md body (~500 tokens):** Orchestration flow from `daily-routine.md` — sync, check inbox, process, detect anomalies, brief.
-
-- "If there is new data to process, read `references/import-steps.md`."
-- "To check for anomalies, read `references/anomaly-steps.md`."
-
-Self-contained within its own directory — does not depend on other skills being installed. The references are condensed summaries of the import and anomaly detection flows, not full copies.
-
-**references/import-steps.md:** Condensed import checklist (sync → parse → dedup → confirm → record → archive). The full `quidclaw-import` skill has more detail; this reference covers just what's needed for the daily routine.
-
-**references/anomaly-steps.md:** Condensed anomaly checks (duplicates, spending spikes, large transactions). The full `quidclaw-review` skill has more detail; this reference covers the daily quick-scan.
-
-### 5. `quidclaw-review` — Financial Review & Reporting
-
-```
-quidclaw-review/
-  SKILL.md
-  references/
-    reconciliation.md
-    anomaly-detection.md
-```
-
-**SKILL.md frontmatter:**
-
-```yaml
----
-name: quidclaw-review
-description: >
-  Financial review, reporting, and analysis. Generates monthly summaries,
-  detects anomalies, and reconciles balances. Always reconcile before
-  reporting. Use when user asks for "monthly report", "review", "anomalies",
-  "reconcile", or "financial summary".
----
-```
-
-**SKILL.md body (~800 tokens):** Monthly review flow from `monthly-review.md` (data-status → income → breakdown → comparison → insights → save).
-
-- "Before generating any report, read `references/reconciliation.md` and run the pre-flight checks."
-- "To scan for anomalies, read `references/anomaly-detection.md`."
-
-**references/reconciliation.md:** Content from `reconcile.md` — completeness check, gap detection, balance sanity check.
-
-**references/anomaly-detection.md:** Content from `detect-anomalies.md` — duplicate detection, subscription tracking, spending spikes, outlier identification.
-
-## Token Budget Summary
+### Token Budget
 
 | Skill | Frontmatter (always) | Body (on activate) | References (on demand) |
 |-------|---------------------|--------------------|-----------------------|
 | `quidclaw` | ~80 | ~300 | cli-reference ~800, conventions ~300, notes-guide ~1500 |
 | `quidclaw-onboarding` | ~80 | ~3000 | email ~400, backup ~300, automation ~400 |
 | `quidclaw-import` | ~80 | ~2000 | email-processing ~1000, document-archival ~500 |
-| `quidclaw-daily` | ~80 | ~800 | (none) |
+| `quidclaw-daily` | ~80 | ~800 | import-steps ~300, anomaly-steps ~300 |
 | `quidclaw-review` | ~80 | ~800 | reconciliation ~500, anomaly-detection ~500 |
 | **Total always loaded** | **~400** | | |
 
-400 tokens for all 5 skill frontmatters — negligible. Each activation loads only the relevant skill body + on-demand references. Compared to the current approach of loading the entire `_build_instruction_body()` (~2500 tokens) into CLAUDE.md on every session, this is more efficient for most interactions.
-
-## Changes to `init` and `upgrade`
-
-### `init` command
-
-Currently generates platform-specific instruction files. New behavior:
-
-1. Install core skills to `.agents/skills/` (cross-platform)
-2. Optionally generate a minimal platform file for compatibility:
-   - CLAUDE.md: "QuidClaw skills are installed. See `.agents/skills/quidclaw*/`."
-   - Or omit entirely — skills are auto-discovered
-
-```python
-# init: install skills to platform-appropriate directory
-PLATFORM_SKILLS_DIR = {
-    "claude-code": ".claude/skills",
-    "openclaw": ".claude/skills",      # OpenClaw uses Claude Code's path
-    "gemini": ".gemini/skills",
-    "codex": ".agents/skills",
-}
-skills_source = Path(__file__).parent / "skills"
-skills_dir_name = PLATFORM_SKILLS_DIR.get(platform, ".agents/skills")
-skills_target = config.data_dir / skills_dir_name
-if skills_source.exists():
-    for skill_dir in skills_source.iterdir():
-        if skill_dir.is_dir() and (skill_dir / "SKILL.md").exists():
-            target = skills_target / skill_dir.name
-            shutil.copytree(skill_dir, target, dirs_exist_ok=True)
-```
-
-### `upgrade` command
-
-Currently updates workflows and platform instruction files. New behavior:
-
-1. Update core skills in `.agents/skills/`
-2. Update plugin skills from installed plugins
-3. Keep legacy workflow update for backwards compatibility during transition
-
-### Package structure change
-
-```
-src/quidclaw/
-  skills/                           # NEW: replaces workflows/
-    quidclaw/
-      SKILL.md
-      references/
-        cli-reference.md
-        conventions.md
-        notes-guide.md
-    quidclaw-onboarding/
-      SKILL.md
-      references/
-        email-setup.md
-        backup-setup.md
-        automation-setup.md
-    quidclaw-import/
-      SKILL.md
-      references/
-        email-processing.md
-        document-archival.md
-    quidclaw-daily/
-      SKILL.md
-    quidclaw-review/
-      SKILL.md
-      references/
-        reconciliation.md
-        anomaly-detection.md
-  workflows/                        # DEPRECATED: kept during transition
-    ...
-```
-
-`pyproject.toml` build config updated:
-
-```toml
-[tool.hatch.build]
-include = [
-    "src/quidclaw/**/*.py",
-    "src/quidclaw/skills/**/SKILL.md",
-    "src/quidclaw/skills/**/references/*.md",
-    "src/quidclaw/templates/*.md",
-    "src/quidclaw/workflows/*.md",      # Keep during transition
-]
-```
-
-## Phase 1 Changes Summary
-
-| File / Directory | Change |
-|-----------------|--------|
-| `src/quidclaw/skills/` | **New** — 5 skill directories with SKILL.md + references |
-| `src/quidclaw/workflows/` | Deprecated, kept during transition |
-| `cli.py` (`init`) | Install skills to `.agents/skills/` instead of generating platform files |
-| `cli.py` (`upgrade`) | Update skills instead of workflows + platform files |
-| `cli.py` (`_build_instruction_body`) | Removed — content distributed across skills |
-| `pyproject.toml` | Update build includes for skills |
-| `src/quidclaw/templates/skill.md` | Removed — replaced by proper skills |
-
-## Phase 1 Testing
-
-- All existing tests pass (no core logic changes)
-- New tests: verify skill files are installed correctly by `init` and `upgrade`
-- Manual verification: start a Claude Code / Gemini CLI session in a QuidClaw project, confirm skills are auto-discovered
-
-## Phase 1 Migration for Existing Users
-
-`quidclaw upgrade` handles migration:
-1. Installs skills to `.agents/skills/`
-2. Keeps existing workflow files and platform instruction files (no deletion)
-3. Users can manually delete old CLAUDE.md / workflows after confirming skills work
+400 tokens for all 5 skill frontmatters — negligible. Each activation loads only the relevant skill body + on-demand references.
 
 ---
 
@@ -482,7 +159,7 @@ from quidclaw.core.plugins import load_plugins
 load_plugins(main)
 ```
 
-**Delete** the two `try: import quidclaw.core.sources.agentmail` blocks in `sync()` (lines 627-630) and `add_source()` (lines 548-550). **Add** a single module-level import: `try: import quidclaw.core.sources.agentmail except ImportError: pass`.
+**Delete** the two `try: import quidclaw.core.sources.agentmail` blocks in `sync()` and `add_source()`. **Add** a single module-level import: `try: import quidclaw.core.sources.agentmail except ImportError: pass`.
 
 ### Plugin Management
 
@@ -505,7 +182,7 @@ for plugin in discover_plugins():
 
 ### `add-source` Extension
 
-Add `--option KEY=VALUE` repeatable parameter **alongside** existing flags for backwards compatibility. See Phase 1 spec for details.
+Add `--option KEY=VALUE` repeatable parameter **alongside** existing flags for extensibility. See Phase 1 spec for details.
 
 ## Crypto Plugin: `quidclaw-crypto`
 
@@ -631,7 +308,7 @@ Minimal by design — most crypto operations are handled by the `quidclaw-crypto
 - `test_load_plugins_registers_commands` — verify CLI group has new commands
 - `test_plugin_load_failure_skipped` — broken plugin doesn't crash core
 - `test_plugin_api_version_mismatch` — incompatible plugin skipped with warning
-- `test_plugin_skills_installed` — verify `get_skills()` content copied to `.agents/skills/`
+- `test_plugin_skills_installed` — verify `get_skills_dir()` content copied to `.agents/skills/`
 
 ### Phase 2 Tests — Crypto Plugin (`quidclaw-crypto/tests/`)
 
@@ -639,14 +316,9 @@ Minimal by design — most crypto operations are handled by the `quidclaw-crypto
 - Fixtures with sample Etherscan/CCXT JSON
 - Skill presence tests — verify `get_skills_dir()` returns valid directory with expected SKILL.md files
 
-## Migration Path
+## Installation
 
-### Existing Users
-
-`quidclaw upgrade` is the migration path:
-1. Installs skills to `.agents/skills/`
-2. Keeps existing workflow files and platform instruction files (no deletion)
-3. Skills take precedence over old instruction files — agents that support skills will use them; agents that don't fall back to CLAUDE.md etc.
+No migration needed. `pip install quidclaw-crypto` + `quidclaw upgrade` installs everything.
 
 ### Plugin Developers
 
