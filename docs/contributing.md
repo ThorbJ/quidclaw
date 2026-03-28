@@ -5,7 +5,7 @@
 1. Add core logic in `src/quidclaw/core/<module>.py` with tests in `tests/core/`
 2. Add a Click command in `src/quidclaw/cli.py` under the appropriate section
 3. Add CLI test in `tests/test_cli.py`
-4. Update the CLI reference in the `quidclaw` skill (`src/quidclaw/skills/quidclaw.md`) and `docs/cli-reference.md`
+4. Update the CLI reference in the skill (`src/quidclaw/skills/quidclaw/references/cli-reference.md`) and `docs/cli-reference.md`
 
 Pattern:
 ```python

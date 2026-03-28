@@ -350,6 +350,31 @@ class TestAccounts:
         )
         assert result.exit_code == 0
 
+    def test_add_account_with_metadata(self, tmp_path):
+        runner = _init_project(tmp_path)
+        meta = json.dumps({"institution": "CMB", "account-number": "1234"})
+        result = runner.invoke(
+            main, ["add-account", "Assets:Bank:CMB:1234", "--currencies", "CNY", "--meta", meta],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        content = (tmp_path / "ledger" / "accounts.bean").read_text()
+        assert 'institution: "CMB"' in content
+
+    def test_add_note(self, tmp_path):
+        runner = _init_project(tmp_path)
+        runner.invoke(
+            main, ["add-account", "Assets:Bank:Test"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        result = runner.invoke(
+            main, ["add-note", "Assets:Bank:Test", "Called bank about transfer", "--date", "2026-03-15"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        content = (tmp_path / "ledger" / "2026" / "2026-03.bean").read_text()
+        assert 'note Assets:Bank:Test "Called bank about transfer"' in content
+
 
 # --- Transactions ---
 
@@ -401,6 +426,50 @@ class TestTransactions:
         assert 'source: "test-source"' in content
         assert 'import-id: "evt_test"' in content
 
+    def test_add_transaction_with_flag(self, tmp_path):
+        runner = _init_project(tmp_path)
+        posting1 = json.dumps({"account": "Expenses:Food", "amount": "50", "currency": "CNY"})
+        posting2 = json.dumps({"account": "Assets:Bank:Checking"})
+        result = runner.invoke(
+            main, [
+                "add-txn",
+                "--date", "2026-03-15",
+                "--payee", "Unknown",
+                "--narration", "Unconfirmed",
+                "--posting", posting1,
+                "--posting", posting2,
+                "--flag", "!",
+            ],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        txn_file = tmp_path / "ledger" / "2026" / "2026-03.bean"
+        assert '! "Unknown"' in txn_file.read_text()
+
+    def test_add_transaction_with_tags_and_links(self, tmp_path):
+        runner = _init_project(tmp_path)
+        posting1 = json.dumps({"account": "Expenses:Food", "amount": "50", "currency": "CNY"})
+        posting2 = json.dumps({"account": "Assets:Bank:Checking"})
+        result = runner.invoke(
+            main, [
+                "add-txn",
+                "--date", "2026-03-15",
+                "--payee", "Restaurant",
+                "--narration", "Team dinner",
+                "--posting", posting1,
+                "--posting", posting2,
+                "--tag", "trip-beijing",
+                "--tag", "tax-2026",
+                "--link", "project-alpha",
+            ],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        content = (tmp_path / "ledger" / "2026" / "2026-03.bean").read_text()
+        assert "#trip-beijing" in content
+        assert "#tax-2026" in content
+        assert "^project-alpha" in content
+
 
 # --- Balance ---
 
@@ -435,6 +504,61 @@ class TestBalance:
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert "Expenses:Food" in data
+
+    def test_add_balance_assertion(self, tmp_path):
+        runner = _init_project(tmp_path)
+        env = _env(tmp_path)
+        posting1 = json.dumps({"account": "Expenses:Food", "amount": "50", "currency": "CNY"})
+        posting2 = json.dumps({"account": "Assets:Bank:Checking", "amount": "-50", "currency": "CNY"})
+        runner.invoke(
+            main, [
+                "add-txn", "--date", "2026-03-15", "--payee", "Test",
+                "--posting", posting1, "--posting", posting2,
+            ],
+            catch_exceptions=False, env=env,
+        )
+        result = runner.invoke(
+            main, ["add-balance", "Assets:Bank:Checking", "--amount", "-50", "--currency", "CNY", "--date", "2026-03-16"],
+            catch_exceptions=False, env=env,
+        )
+        assert result.exit_code == 0
+        assert "Balance assertion" in result.output
+        content = (tmp_path / "ledger" / "2026" / "2026-03.bean").read_text()
+        assert "balance Assets:Bank:Checking" in content
+
+    def test_add_pad(self, tmp_path):
+        runner = _init_project(tmp_path)
+        env = _env(tmp_path)
+        runner.invoke(
+            main, ["add-account", "Equity:Opening-Balances"],
+            catch_exceptions=False, env=env,
+        )
+        result = runner.invoke(
+            main, ["add-pad", "Assets:Bank:Checking", "--date", "2026-03-01"],
+            catch_exceptions=False, env=env,
+        )
+        assert result.exit_code == 0
+        assert "Pad" in result.output
+        content = (tmp_path / "ledger" / "2026" / "2026-03.bean").read_text()
+        assert "pad Assets:Bank:Checking" in content
+        assert "Equity:Opening-Balances" in content
+
+    def test_add_document(self, tmp_path):
+        runner = _init_project(tmp_path)
+        env = _env(tmp_path)
+        result = runner.invoke(
+            main, [
+                "add-document", "Assets:Bank:Checking",
+                "documents/2026/03/BOC-Statement-2026-03.pdf",
+                "--date", "2026-03-15",
+            ],
+            catch_exceptions=False, env=env,
+        )
+        assert result.exit_code == 0
+        assert "Document linked" in result.output
+        content = (tmp_path / "ledger" / "2026" / "2026-03.bean").read_text()
+        assert "document Assets:Bank:Checking" in content
+        assert "BOC-Statement-2026-03.pdf" in content
 
 
 # --- Query ---

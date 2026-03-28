@@ -1,4 +1,10 @@
-"""E2E test configuration and fixtures."""
+"""E2E test configuration and fixtures.
+
+E2E tests call the real claude CLI and make API calls. They are slow and
+expensive, so they are gated behind the 'e2e' marker.
+
+Run with: pytest -m e2e
+"""
 
 import shutil
 from pathlib import Path
@@ -8,6 +14,13 @@ import pytest
 from click.testing import CliRunner
 from quidclaw.cli import main
 from quidclaw.config import QuidClawConfig
+
+
+# Give e2e tests generous timeout — each test may invoke claude multiple times,
+# and each call can take up to 5 minutes. This overrides any global
+# --timeout flag passed to pytest, preventing pytest-timeout from killing
+# e2e tests prematurely while subprocess.run is still waiting for claude.
+pytestmark = pytest.mark.timeout(900)  # 15 minutes per test
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 

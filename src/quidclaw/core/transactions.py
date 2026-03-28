@@ -14,14 +14,25 @@ class TransactionManager:
         narration: str,
         postings: list[dict],
         metadata: dict | None = None,
+        flag: str = "*",
+        tags: list[str] | None = None,
+        links: list[str] | None = None,
     ) -> None:
         """Add a transaction to the appropriate monthly file.
 
         Each posting dict has: account (required), amount (optional), currency (optional).
         If amount is omitted from one posting, beancount auto-balances.
         metadata is an optional dict of key/value pairs written as Beancount metadata lines.
+        flag: transaction flag — '*' (cleared), '!' (pending), or any uppercase letter.
+        tags: list of tag strings (without #), e.g. ["trip-beijing", "tax-2026"].
+        links: list of link strings (without ^), e.g. ["invoice-jan"].
         """
-        lines = [f'{date} * "{payee}" "{narration}"\n']
+        header = f'{date} {flag} "{payee}" "{narration}"'
+        if tags:
+            header += " " + " ".join(f"#{t}" for t in tags)
+        if links:
+            header += " " + " ".join(f"^{l}" for l in links)
+        lines = [header + "\n"]
         if metadata:
             for key, value in metadata.items():
                 lines.append(f'  {key}: "{value}"\n')

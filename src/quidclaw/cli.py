@@ -282,13 +282,15 @@ def setup():
 @click.argument("name")
 @click.option("--currencies", default=None, help="Comma-separated currencies")
 @click.option("--date", "open_date", default=None, help="Open date (YYYY-MM-DD)")
-def add_account(name, currencies, open_date):
+@click.option("--meta", default=None, help='Metadata as JSON: \'{"institution":"..."}\'')
+def add_account(name, currencies, open_date, meta):
     """Open a new account."""
     from quidclaw.core.accounts import AccountManager
     ledger = get_ledger()
     mgr = AccountManager(ledger)
     currency_list = [c.strip() for c in currencies.split(",")] if currencies else None
-    mgr.add_account(name, currency_list, open_date)
+    metadata = json.loads(meta) if meta else None
+    mgr.add_account(name, currency_list, open_date, metadata=metadata)
     click.echo(f"Opened account {name}")
     _try_backup(ledger.config, f"Add account: {name}")
 
@@ -304,6 +306,22 @@ def close_account(name, close_date):
     mgr.close_account(name, close_date)
     click.echo(f"Closed account {name}")
     _try_backup(ledger.config, f"Close account: {name}")
+
+
+@main.command("add-note")
+@click.argument("account")
+@click.argument("note")
+@click.option("--date", "note_date", default=None, help="Note date (YYYY-MM-DD, defaults to today)")
+def add_note(account, note, note_date):
+    """Add a Beancount note to an account."""
+    import datetime as dt
+    from quidclaw.core.accounts import AccountManager
+    ledger = get_ledger()
+    mgr = AccountManager(ledger)
+    parsed_date = dt.date.fromisoformat(note_date) if note_date else None
+    mgr.add_note(account, note, parsed_date)
+    click.echo(f"Note added to {account}")
+    _try_backup(ledger.config, f"Add note: {account}")
 
 
 @main.command("list-accounts")
@@ -328,7 +346,10 @@ def list_accounts(account_type, as_json):
 @click.option("--narration", default="", help="Description")
 @click.option("--posting", multiple=True, required=True, help='Posting as JSON: \'{"account":"...", "amount":"...", "currency":"..."}\'')
 @click.option("--meta", default=None, help='Metadata as JSON: \'{"source":"..."}\'')
-def add_txn(date, payee, narration, posting, meta):
+@click.option("--flag", default="*", help="Transaction flag: * (cleared), ! (pending), or A-Z")
+@click.option("--tag", multiple=True, help="Tag (without #), can be repeated")
+@click.option("--link", multiple=True, help="Link (without ^), can be repeated")
+def add_txn(date, payee, narration, posting, meta, flag, tag, link):
     """Record a transaction."""
     import datetime as dt
     from quidclaw.core.transactions import TransactionManager
@@ -337,7 +358,10 @@ def add_txn(date, payee, narration, posting, meta):
     postings = [json.loads(p) for p in posting]
     parsed_date = dt.date.fromisoformat(date)
     metadata = json.loads(meta) if meta else None
-    mgr.add_transaction(parsed_date, payee, narration, postings, metadata)
+    tags = list(tag) if tag else None
+    links = list(link) if link else None
+    mgr.add_transaction(parsed_date, payee, narration, postings, metadata,
+                        flag=flag, tags=tags, links=links)
     click.echo(f"Recorded transaction: {date} {payee}")
     _try_backup(ledger.config, f"Add transaction: {payee}")
 
@@ -362,6 +386,58 @@ def balance(account, as_json):
     else:
         for k, v in result.items():
             click.echo(f"{k}: {v}")
+
+
+@main.command("add-document")
+@click.argument("account")
+@click.argument("path")
+@click.option("--date", "doc_date", default=None, help="Document date (YYYY-MM-DD, defaults to today)")
+def add_document(account, path, doc_date):
+    """Link a document to an account (Beancount document directive)."""
+    import datetime as dt
+    from quidclaw.core.documents import DocumentManager
+    ledger = get_ledger()
+    mgr = DocumentManager(ledger)
+    parsed_date = dt.date.fromisoformat(doc_date) if doc_date else None
+    mgr.add_document(account, path, parsed_date)
+    click.echo(f"Document linked: {account} <- {path}")
+    _try_backup(ledger.config, f"Add document: {account}")
+
+
+@main.command("add-pad")
+@click.argument("account")
+@click.option("--source", default="Equity:Opening-Balances", help="Source account (default: Equity:Opening-Balances)")
+@click.option("--date", "pad_date", required=True, help="Pad date (YYYY-MM-DD)")
+def add_pad(account, source, pad_date):
+    """Write a pad directive to auto-fill balance gaps."""
+    import datetime as dt
+    from quidclaw.core.balance import BalanceManager
+    ledger = get_ledger()
+    mgr = BalanceManager(ledger)
+    parsed_date = dt.date.fromisoformat(pad_date)
+    mgr.add_pad(account, source, parsed_date)
+    click.echo(f"Pad: {pad_date} {account} <- {source}")
+    _try_backup(ledger.config, f"Pad: {account}")
+
+
+@main.command("add-balance")
+@click.argument("account")
+@click.option("--amount", required=True, help="Expected balance amount")
+@click.option("--currency", default=None, help="Currency (defaults to operating currency)")
+@click.option("--date", "bal_date", required=True, help="Assertion date (YYYY-MM-DD)")
+def add_balance(account, amount, currency, bal_date):
+    """Write a balance assertion to the ledger."""
+    import datetime as dt
+    from decimal import Decimal
+    from quidclaw.core.balance import BalanceManager
+    ledger = get_ledger()
+    if currency is None:
+        currency = ledger.config.get_setting("operating_currency", "CNY")
+    mgr = BalanceManager(ledger)
+    parsed_date = dt.date.fromisoformat(bal_date)
+    mgr.add_balance_assertion(account, Decimal(amount), currency, parsed_date)
+    click.echo(f"Balance assertion: {bal_date} {account} {amount} {currency}")
+    _try_backup(ledger.config, f"Balance assertion: {account}")
 
 
 @main.command("balance-check")

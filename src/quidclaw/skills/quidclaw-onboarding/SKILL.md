@@ -105,6 +105,15 @@ Just note it down. Rough numbers are fine. "About 180万" is perfectly okay.
 - **On-demand**: Only respond when you ask
 - **Balanced**: Mention important things, but don't overwhelm
 
+### Phase 8a: Reconciliation Preference
+
+**Question 14a:** "When I import your bank statements, how thorough should I be about categorizing?"
+- **Strict**: Every expense must have a clear category (food, transport, etc.) and every income must have a clear source. I'll mark uncertain items for your review.
+- **Relaxed**: I'll do my best to categorize, but won't bother you about unclear items.
+- **Minimal**: Just record the amounts, don't worry about categories.
+
+This determines whether uncertain transactions are flagged with `!` (pending) for user review or recorded as `*` (cleared) with best-guess categories.
+
 ### Phase 9: Inbox Introduction & First Data
 
 **Question 15:** "Now let me show you how to get your data in. You have an `inbox/` folder — you can drop any financial document there: bank statements, screenshots, receipts, invoices, photos of paper receipts. I'll read them and handle everything."
@@ -139,6 +148,7 @@ updated: {today's date}
 - Other currencies: {list}
 - Main goal: {goal}
 - Proactiveness: {preference}
+- Reconciliation: {strict/relaxed/minimal}
 
 ## Financial Landscape
 
@@ -210,3 +220,14 @@ After completing the interview, read `references/email-setup.md` if the user wan
 Read `references/backup-setup.md` to set up Git backup.
 
 Read `references/automation-setup.md` to configure scheduled tasks.
+
+## Opening Balances (When First Statements Arrive)
+
+When the user provides their first bank statements or tells you current account balances, use `add-pad` and `add-balance` to set opening balances:
+
+```bash
+quidclaw add-pad Assets:Bank:CMB:1234 --date 2026-01-01
+quidclaw add-balance Assets:Bank:CMB:1234 --amount 50000 --date 2026-01-02 --currency CNY
+```
+
+This creates a pad directive that auto-fills the gap from `Equity:Opening-Balances`, then a balance assertion that verifies the amount. Do this for each account the user provides a starting balance for.

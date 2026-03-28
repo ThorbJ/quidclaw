@@ -67,9 +67,10 @@ For each confirmed transaction:
      --posting '{"account":"..."}' \
      --meta '{"source":"inbox_file:{FILENAME}","source-file":"documents/YYYY/MM/{ARCHIVED_NAME}"}'
    ```
-4. Use descriptive narrations the user will understand later
-5. Match the currency from the document -- do NOT default, use what the document says
-6. One posting must auto-balance: omit the amount on the funding source posting
+4. For uncertain transactions (unclear category, unmatched amount, unknown payee), use `--flag '!'` to mark as pending review. Otherwise the default `*` (cleared) is used.
+5. Use descriptive narrations the user will understand later
+6. Match the currency from the document -- do NOT default, use what the document says
+7. One posting must auto-balance: omit the amount on the funding source posting
 
 ## Step 6: Archive the File
 
@@ -77,6 +78,11 @@ Right after recording transactions from a file, archive it IMMEDIATELY before do
 
 ```bash
 mkdir -p documents/YYYY/MM && mv inbox/filename documents/YYYY/MM/new-name
+```
+
+Then formally link the archived document to the source account:
+```
+quidclaw add-document ACCOUNT documents/YYYY/MM/new-name --date YYYY-MM-DD
 ```
 
 Naming convention: `{Source}-{Type}-{YYYY-MM}.{ext}`

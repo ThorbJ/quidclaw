@@ -22,7 +22,7 @@ QuidClaw follows a strict two-layer separation:
 │                     CLI Adapter                          │
 │                  src/quidclaw/cli.py                     │
 │                                                          │
-│  Click command group (26 commands)                       │
+│  Click command group (35 commands)                       │
 │  Parses arguments ──► Calls core ──► Formats output      │
 │  Supports --json for structured output                   │
 │  No business logic here                                  │
@@ -35,8 +35,8 @@ QuidClaw follows a strict two-layer separation:
 │                                                          │
 │  AccountManager    TransactionManager    BalanceManager  │
 │  ReportManager     AnomalyDetector       InboxManager    │
-│  NotesManager      PriceManager          LedgerInitializer│
-│  Ledger            DataSource            AuditLogger     │
+│  NotesManager      PriceManager          DocumentManager │
+│  LedgerInitializer Ledger                AuditLogger     │
 │  sources/: DataSource, AgentMailSource, registry        │
 │                                                          │
 │  Pure business logic. Depends on Beancount, NOT on CLI.  │
@@ -60,9 +60,10 @@ Pure Python business logic. Each module has a single responsibility:
 | Module | Class | Responsibility |
 |--------|-------|----------------|
 | `ledger.py` | `Ledger` | Init, load, append, ensure monthly files exist |
-| `accounts.py` | `AccountManager` | Open/close/list accounts |
-| `transactions.py` | `TransactionManager` | Add transactions to monthly files |
-| `balance.py` | `BalanceManager` | Balance queries and assertions |
+| `accounts.py` | `AccountManager` | Open/close/list accounts, notes on accounts |
+| `transactions.py` | `TransactionManager` | Add transactions with flags, tags, links |
+| `balance.py` | `BalanceManager` | Balance queries, assertions, pad directives |
+| `documents.py` | `DocumentManager` | Beancount document directives (link files to accounts) |
 | `reports.py` | `ReportManager` | BQL queries, monthly summaries, category breakdowns, comparisons |
 | `anomaly.py` | `AnomalyDetector` | Duplicates, subscriptions, outliers, unknown merchants |
 | `inbox.py` | `InboxManager` | List inbox files, data freshness status |
@@ -247,8 +248,9 @@ The email sync path uses the data sources subsystem and audit logger:
 5. AI processes each email:
    └── Reads envelope.yaml + body.txt + attachments/
 
-6. quidclaw add-txn --meta '{"source":"email:..."}' (×N)
-   └── Transactions recorded with source provenance
+6. quidclaw add-txn --flag '*' --meta '{"source":"email:..."}' (×N)
+   ├── Transactions recorded with source provenance
+   └── Uncertain items use --flag '!' for user review
 
 7. quidclaw mark-processed → envelope.yaml status updated
    └── Prevents duplicate processing on next sync
@@ -269,8 +271,8 @@ Three layers of tests, from fast and isolated to slow and realistic:
 │  • Slow: each test calls the AI API                  │
 │  • pytest tests/e2e/ -v -m e2e --timeout=180        │
 │                                                      │
-│  6 test groups: import, dedup, reconcile, query,     │
-│                 onboarding, organize                  │
+│  8 test groups: import, dedup, reconcile, query,     │
+│     onboarding, organize, insights, knowledge_base    │
 ├─────────────────────────────────────────────────────┤
 │  Layer 2: CLI + Integration Tests                    │
 │  • tests/test_cli.py — Click test runner             │

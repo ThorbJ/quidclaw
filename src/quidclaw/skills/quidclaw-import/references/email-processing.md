@@ -35,7 +35,7 @@ If the email has files in `attachments/`:
 
 ### Record with Source Metadata
 
-When recording transactions from email, ALWAYS include `--meta` for traceability:
+When recording transactions from email, ALWAYS include `--meta` for traceability. Use `--flag '!'` for uncertain transactions that need user confirmation:
 
 ```
 quidclaw add-txn \
@@ -74,7 +74,8 @@ archived_to:
 ### Archive and Mark Processed
 
 1. Move attachment files to `documents/YYYY/MM/` using the naming convention `{Source}-{Type}-{YYYY-MM}.{ext}`
-2. Run `quidclaw mark-processed {source_name} {email_dir}` to update the status
+2. Link the archived document: `quidclaw add-document ACCOUNT documents/YYYY/MM/archived-name.ext --date YYYY-MM-DD`
+3. Run `quidclaw mark-processed {source_name} {email_dir}` to update the status
 
 ## Summary
 

@@ -17,8 +17,8 @@ class TestDataCompleteness:
         result = run_claude("我现在有多少钱？", data_dir)
 
         assert ai_mentioned(result,
-            "没有数据", "no data", "还没有", "需要先", "提供",
-            "没有记录", "先", "初始化", "开始"
+            "没有数据", "no data", "还没有", "需要先",
+            "没有记录", "初始化", "开始记账"
         ), f"AI should not answer with no data. Got: {result.get('result', '')[:300]}"
 
     def test_stale_data_caveat(self, data_dir_with_accounts):
@@ -33,8 +33,9 @@ class TestDataCompleteness:
         )
 
         assert ai_mentioned(result,
-            "没有", "缺少", "不完整", "no data", "missing",
-            "没有记录", "2月", "february", "0"
+            "没有2月", "缺少", "不完整", "no data for february", "missing",
+            "没有记录", "february", "没有二月", "2月没有", "暂无数据",
+            "没有任何2月"
         ), f"AI should note February data is missing. Got: {result.get('result', '')[:300]}"
 
     def test_unprocessed_inbox_warning(self, data_dir_with_accounts):
@@ -52,8 +53,8 @@ class TestDataCompleteness:
             pass  # AI processed the files first — correct behavior
         else:
             assert ai_mentioned(result,
-                "inbox", "未处理", "unprocessed", "新文件", "账单",
-                "先", "处理", "导入"
+                "inbox", "未处理", "unprocessed", "新文件",
+                "待处理", "先处理", "先导入"
             ), f"AI should mention unprocessed files. Got: {result.get('result', '')[:300]}"
 
 
@@ -75,6 +76,5 @@ class TestBalanceReconciliation:
 
         assert ai_mentioned(result,
             "不一致", "不匹配", "差异", "不对", "discrepancy",
-            "mismatch", "不符", "对不上", "999999", "99",
-            "没有", "无法", "核对", "balance", "余额"
+            "mismatch", "不符", "对不上", "999999"
         ), f"AI should detect mismatch. Got: {str(result)[:500]}"
