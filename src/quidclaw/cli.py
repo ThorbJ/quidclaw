@@ -56,6 +56,20 @@ def _install_skills(config: QuidClawConfig, platform: str) -> None:
             shutil.copytree(skill_dir, target, dirs_exist_ok=True)
 
 
+def _install_plugin_skills(config: QuidClawConfig, platform: str) -> None:
+    """Copy skills from installed plugins to the platform skills directory."""
+    from quidclaw.core.plugins import discover_plugins
+    skills_dir_name = PLATFORM_SKILLS_DIR.get(platform, ".agents/skills")
+    skills_target = Path(config.data_dir) / skills_dir_name
+    for plugin in discover_plugins():
+        plugin_skills = plugin.get_skills_dir()
+        if plugin_skills and plugin_skills.exists():
+            for skill_dir in plugin_skills.iterdir():
+                if skill_dir.is_dir() and (skill_dir / "SKILL.md").exists():
+                    target = skills_target / skill_dir.name
+                    shutil.copytree(skill_dir, target, dirs_exist_ok=True)
+
+
 def _build_entry_file(config: QuidClawConfig) -> str:
     """Build minimal platform entry file pointing to skills."""
     currency = config.get_setting("operating_currency")
@@ -131,6 +145,7 @@ def init(platform):
 
     # Install skills
     _install_skills(config, platform)
+    _install_plugin_skills(config, platform)
 
     # Generate platform entry file
     entry = _build_entry_file(config)
@@ -177,6 +192,7 @@ def upgrade():
 
     # Update skills
     _install_skills(config, config.get_setting("platform", "claude-code"))
+    _install_plugin_skills(config, config.get_setting("platform", "claude-code"))
     click.echo("Updated skills")
 
     if config.main_bean.exists():

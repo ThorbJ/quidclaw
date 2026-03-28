@@ -1,6 +1,7 @@
 """CLI tests using Click's CliRunner."""
 
 import json
+from pathlib import Path
 
 from click.testing import CliRunner
 from quidclaw.cli import main
@@ -224,6 +225,34 @@ class TestUpgrade:
         )
         assert result.exit_code == 0
         assert (daily_dir / "SKILL.md").exists()
+
+    def test_upgrade_installs_plugin_skills(self, tmp_path):
+        """Plugin skills should be copied to the skills directory on upgrade."""
+        from unittest.mock import patch
+        from quidclaw.core.plugins import QuidClawPlugin
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as skill_src:
+            skill_dir = Path(skill_src) / "quidclaw-fake"
+            skill_dir.mkdir()
+            (skill_dir / "SKILL.md").write_text("---\nname: quidclaw-fake\ndescription: Fake\n---\nBody")
+
+            class FakePlugin(QuidClawPlugin):
+                @staticmethod
+                def name(): return "fake"
+                @staticmethod
+                def description(): return "Fake plugin"
+                def get_skills_dir(self):
+                    return Path(skill_src)
+
+            runner = _init_project(tmp_path)
+            with patch("quidclaw.core.plugins.discover_plugins", return_value=[FakePlugin()]):
+                result = runner.invoke(
+                    main, ["upgrade"], catch_exceptions=False,
+                    env=_env(tmp_path),
+                )
+            assert result.exit_code == 0
+            assert (tmp_path / ".claude" / "skills" / "quidclaw-fake" / "SKILL.md").exists()
 
 
 # --- Data Status ---
