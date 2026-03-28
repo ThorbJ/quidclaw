@@ -126,6 +126,65 @@ class TestInit:
                                catch_exceptions=False, env=env)
         assert result.exit_code == 0
 
+    def test_init_installs_skills_claude_code(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["init", "--platform", "claude-code"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        skills_dir = tmp_path / ".claude" / "skills"
+        assert (skills_dir / "quidclaw" / "SKILL.md").exists()
+        assert (skills_dir / "quidclaw-onboarding" / "SKILL.md").exists()
+        assert (skills_dir / "quidclaw-import" / "SKILL.md").exists()
+        assert (skills_dir / "quidclaw-daily" / "SKILL.md").exists()
+        assert (skills_dir / "quidclaw-review" / "SKILL.md").exists()
+
+    def test_init_installs_skills_gemini(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["init", "--platform", "gemini"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        assert (tmp_path / ".gemini" / "skills" / "quidclaw" / "SKILL.md").exists()
+
+    def test_init_installs_skills_codex(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["init", "--platform", "codex"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        assert (tmp_path / ".agents" / "skills" / "quidclaw" / "SKILL.md").exists()
+
+    def test_init_skills_have_valid_frontmatter(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["init", "--platform", "claude-code"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        import yaml
+        skill_md = (tmp_path / ".claude" / "skills" / "quidclaw" / "SKILL.md").read_text()
+        parts = skill_md.split("---", 2)
+        assert len(parts) >= 3, "SKILL.md must have YAML frontmatter"
+        meta = yaml.safe_load(parts[1])
+        assert meta["name"] == "quidclaw"
+        assert "description" in meta
+
+    def test_init_skills_references_installed(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["init", "--platform", "claude-code"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        refs = tmp_path / ".claude" / "skills" / "quidclaw" / "references"
+        assert (refs / "cli-reference.md").exists()
+        assert (refs / "conventions.md").exists()
+        assert (refs / "notes-guide.md").exists()
+
 
 # --- Upgrade ---
 
@@ -157,6 +216,31 @@ class TestUpgrade:
         content = (tmp_path / "CLAUDE.md").read_text()
         assert content != "old"
         assert "QuidClaw" in content
+
+    def test_upgrade_updates_skills(self, tmp_path):
+        runner = _init_project(tmp_path)
+        skill_file = tmp_path / ".claude" / "skills" / "quidclaw" / "SKILL.md"
+        assert skill_file.exists()
+        skill_file.write_text("old content")
+        result = runner.invoke(
+            main, ["upgrade"], catch_exceptions=False,
+            env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        assert skill_file.read_text() != "old content"
+
+    def test_upgrade_installs_new_skills(self, tmp_path):
+        runner = _init_project(tmp_path)
+        import shutil
+        daily_dir = tmp_path / ".claude" / "skills" / "quidclaw-daily"
+        if daily_dir.exists():
+            shutil.rmtree(daily_dir)
+        result = runner.invoke(
+            main, ["upgrade"], catch_exceptions=False,
+            env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        assert (daily_dir / "SKILL.md").exists()
 
 
 # --- Data Status ---
