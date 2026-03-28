@@ -29,7 +29,7 @@ DEFAULT_TEST_ACCOUNTS = [
 
 @pytest.fixture
 def data_dir(tmp_path):
-    """Create a fresh QuidClaw data directory via CLI (includes CLAUDE.md + workflows)."""
+    """Create a fresh QuidClaw data directory via CLI (includes skills + entry file)."""
     runner = CliRunner()
     result = runner.invoke(main, ["init", "--platform", "claude-code"], env={"QUIDCLAW_DATA_DIR": str(tmp_path)})
     assert result.exit_code == 0

@@ -120,14 +120,6 @@ def init(platform):
     ledger = Ledger(config)
     ledger.init()
 
-    # Copy workflow files
-    workflows_dir = Path(__file__).parent / "workflows"
-    target_dir = Path(config.data_dir) / ".quidclaw" / "workflows"
-    if workflows_dir.exists():
-        target_dir.mkdir(parents=True, exist_ok=True)
-        for f in workflows_dir.glob("*.md"):
-            shutil.copy2(f, target_dir / f.name)
-
     # Store platform choice
     config.set_setting("platform", platform)
 
@@ -174,16 +166,8 @@ def init(platform):
 
 @main.command()
 def upgrade():
-    """Upgrade workflow files and instruction files to latest version."""
+    """Upgrade skills and entry file to latest version."""
     config = get_config()
-
-    workflows_dir = Path(__file__).parent / "workflows"
-    target_dir = Path(config.data_dir) / ".quidclaw" / "workflows"
-    if workflows_dir.exists():
-        target_dir.mkdir(parents=True, exist_ok=True)
-        for f in workflows_dir.glob("*.md"):
-            shutil.copy2(f, target_dir / f.name)
-        click.echo(f"Updated workflows in {target_dir}")
 
     # Update skills
     _install_skills(config, config.get_setting("platform", "claude-code"))
@@ -216,7 +200,7 @@ def upgrade():
         click.echo("Updated AGENTS.md")
 
     click.echo("Upgrade complete.")
-    _try_backup(config, "Upgrade QuidClaw workflows")
+    _try_backup(config, "Upgrade QuidClaw skills")
 
 
 @main.command("set-config")

@@ -107,7 +107,6 @@ No business logic lives here. If a feature can be implemented without changing `
 |------|---------|
 | `config.py` | `QuidClawConfig` dataclass — all path derivations from data directory |
 | `skills/` | Agent Skills (agentskills.io standard), installed to platform directories at init/upgrade |
-| `workflows/*.md` | Legacy workflow guides (deprecated), copied to `.quidclaw/workflows/` for backwards compatibility |
 
 ## Component Collaboration Flow
 
@@ -193,7 +192,7 @@ my-finances/                       # Data directory root
 │   ├── quidclaw-daily.md         #   Daily financial check-in
 │   └── quidclaw-review.md        #   Monthly financial analysis + reconciliation
 ├── .quidclaw/
-│   └── workflows/                 # Legacy workflow guides (deprecated)
+│   └── config.yaml                # QuidClaw settings
 │
 ├── ledger/                        # Beancount ledger (structured data)
 │   ├── main.bean                  #   Root file, includes everything

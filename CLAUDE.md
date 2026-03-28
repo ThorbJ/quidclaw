@@ -7,9 +7,12 @@ Zero-barrier personal CFO. AI-powered, local-first, powered by Beancount V3.
 - `src/quidclaw/core/` — Pure business logic. Depends only on Beancount, NOT on Click.
 - `src/quidclaw/cli.py` — Thin Click CLI adapter. No business logic here.
 - `src/quidclaw/skills/` — Agent Skills (agentskills.io standard, installed to user project on init).
-- `src/quidclaw/workflows/` — AI workflow instructions (deprecated -- see skills/).
 
 See `docs/architecture.md` for module details, data flow diagrams, and design decisions.
+
+## Project Stage
+
+This project is in active development (alpha). Refactoring happens frequently. Do NOT add backwards-compatibility shims, deprecation warnings, migration paths, or legacy fallbacks. Keep one clean, current version of everything. Delete what's replaced.
 
 ## Development
 

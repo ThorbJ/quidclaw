@@ -106,7 +106,8 @@ AI：检测到 2 个可疑项：
 my-finances/
 ├── CLAUDE.md                # AI 入口文件（自动生成，指向技能）
 ├── .claude/skills/          # Agent Skills（自动安装，5 个技能）
-├── .quidclaw/workflows/     # 旧版工作流指南（已弃用）
+├── .quidclaw/
+│   └── config.yaml          # QuidClaw 配置
 ├── ledger/                  # Beancount 账本（结构化、已验证数据）
 │   ├── main.bean            #   主文件，include 所有子文件
 │   ├── accounts.bean        #   账户开关指令
@@ -141,7 +142,7 @@ my-finances/
 | 命令 | 说明 |
 |------|------|
 | `quidclaw init` | 初始化财务项目：创建账本、安装技能、生成入口文件 |
-| `quidclaw upgrade` | 升级技能、旧版工作流和入口文件到最新版 |
+| `quidclaw upgrade` | 升级技能和入口文件到最新版 |
 | `quidclaw set-config KEY VALUE` | 设置配置项 |
 | `quidclaw get-config [KEY]` | 查看配置项 |
 | `quidclaw setup` | 交互式配置向导 |

@@ -124,7 +124,7 @@ my-finances/
 │   ├── quidclaw-daily.md      #   Daily financial check-in
 │   └── quidclaw-review.md     #   Monthly review + reconciliation
 ├── .quidclaw/
-│   └── workflows/             # Legacy workflow guides (deprecated)
+│   └── config.yaml            # QuidClaw settings
 ├── ledger/                    # Beancount ledger (structured, verified)
 │   ├── main.bean              #   includes all other files
 │   ├── accounts.bean          #   Open/Close directives

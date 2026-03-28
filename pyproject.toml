@@ -55,7 +55,6 @@ include = [
     "src/quidclaw/skills/**/SKILL.md",
     "src/quidclaw/skills/**/references/*.md",
     "src/quidclaw/templates/*.md",
-    "src/quidclaw/workflows/*.md",
 ]
 
 [tool.pytest.ini_options]

@@ -77,15 +77,6 @@ class TestInit:
         assert (tmp_path / "inbox").is_dir()
         assert (tmp_path / "notes" / "pending").is_dir()
 
-    def test_init_creates_workflows(self, tmp_path):
-        runner = CliRunner()
-        result = runner.invoke(
-            main, ["init", "--platform", "claude-code"],
-            catch_exceptions=False, env=_env(tmp_path),
-        )
-        assert result.exit_code == 0
-        assert (tmp_path / ".quidclaw" / "workflows" / "onboarding.md").exists()
-
     def test_init_idempotent(self, tmp_path):
         runner = CliRunner()
         env = _env(tmp_path)
@@ -195,20 +186,6 @@ class TestInit:
 
 
 class TestUpgrade:
-    def test_upgrade_updates_workflows(self, tmp_path):
-        runner = _init_project(tmp_path)
-        workflows_dir = tmp_path / ".quidclaw" / "workflows"
-        assert workflows_dir.is_dir()
-        assert (workflows_dir / "onboarding.md").exists()
-        (workflows_dir / "onboarding.md").write_text("old content")
-        result = runner.invoke(
-            main, ["upgrade"], catch_exceptions=False,
-            env=_env(tmp_path),
-        )
-        assert result.exit_code == 0
-        content = (workflows_dir / "onboarding.md").read_text()
-        assert content != "old content"
-
     def test_upgrade_updates_instruction_files(self, tmp_path):
         """upgrade refreshes both skills and platform entry file."""
         runner = _init_project(tmp_path)
