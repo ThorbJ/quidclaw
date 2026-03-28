@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "quidclaw"
-version = "0.3.0"
+version = "0.4.0"
 description = "Zero-barrier personal CFO — AI-powered, local-first, powered by Beancount"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"

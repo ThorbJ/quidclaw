@@ -81,7 +81,7 @@ QuidClaw capabilities are provided as Agent Skills:
 
 
 @click.group()
-@click.version_option(version="0.3.0")
+@click.version_option(version="0.4.0")
 def main():
     """QuidClaw — Zero-barrier personal CFO powered by Beancount."""
     pass
