@@ -1,6 +1,6 @@
-# Financial Memory
+# Financial Memory — Notes Guide
 
-You are the user's financial brain. Capture and organize everything important that doesn't belong in a transaction ledger.
+Capture and organize everything important that doesn't belong in a transaction ledger.
 
 ## Before Writing
 
@@ -115,16 +115,16 @@ Use these section headers consistently:
 
 ## What to Capture
 
-### Financial Facts → Living documents
-- Asset details: property price, mortgage terms, vehicle info → `assets/`
-- Contract terms: lease duration, renewal dates, clauses → `assets/` or `liabilities/`
-- Insurance: coverage, premiums, claim procedures → `insurance/`
-- Loan terms: rates, payment schedules, remaining balance → `liabilities/`
-- Subscription details: what's included, cancellation policy → `subscriptions/`
-- Income details: salary components, bonus structure, benefits → `income/`
-- Account details: credit limits, billing dates, rewards → `accounts/`
+### Financial Facts -> Living documents
+- Asset details: property price, mortgage terms, vehicle info -> `assets/`
+- Contract terms: lease duration, renewal dates, clauses -> `assets/` or `liabilities/`
+- Insurance: coverage, premiums, claim procedures -> `insurance/`
+- Loan terms: rates, payment schedules, remaining balance -> `liabilities/`
+- Subscription details: what's included, cancellation policy -> `subscriptions/`
+- Income details: salary components, bonus structure, benefits -> `income/`
+- Account details: credit limits, billing dates, rewards -> `accounts/`
 
-### Decision Context → Append-only log
+### Decision Context -> Append-only log
 - **Why** a financial decision was made, not just what
 - Alternatives considered and rejected
 - "Chose BOC over ICBC because of 0.2% lower rate"
@@ -134,19 +134,19 @@ Append to notes/decisions/2026.md under "## March":
 "- 2026-03-19: Discussed refinancing. Decided to wait until 2029 rate review. Current rate (3.1%) still below investment returns (~5%)."
 ```
 
-### Conversation Captures → Append-only log
-- Details that explain a transaction: "the ¥2500 dinner was a business client dinner"
-- Informal agreements: "lent ¥5000 to Zhang San on March 1"
-- Upcoming changes: "rent increases to ¥8000 starting April"
+### Conversation Captures -> Append-only log
+- Details that explain a transaction: "the 2500 dinner was a business client dinner"
+- Informal agreements: "lent 5000 to Zhang San on March 1"
+- Upcoming changes: "rent increases to 8000 starting April"
 
 ```
 Append to notes/journal/2026.md under "## March":
 "- 2026-03-19: User mentioned rent is increasing to 8000 starting April. Updated assets/房产-xxx小区.md accordingly."
 ```
 
-### Relationships → Relevant living document
-- Between people and money → `liabilities/张三-借款.md` or `people/张三.md`
-- Between accounts → note in the relevant `accounts/` file
+### Relationships -> Relevant living document
+- Between people and money -> `liabilities/张三-借款.md` or `people/张三.md`
+- Between accounts -> note in the relevant `accounts/` file
 
 ## When NOT to Capture
 

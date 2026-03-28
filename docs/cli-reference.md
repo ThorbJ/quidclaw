@@ -6,22 +6,26 @@ All commands support `--help`. Most support `--json` for structured AI-friendly 
 
 | Command | Purpose |
 |---------|---------|
-| `quidclaw init` | Initialize a new financial project in the current directory |
-| `quidclaw upgrade` | Upgrade workflow files and instruction files to latest version |
+| `quidclaw init` | Initialize a new financial project: creates ledger, installs skills, generates entry file |
+| `quidclaw upgrade` | Upgrade skills and entry file to latest version |
 | `quidclaw set-config KEY VALUE` | Set a configuration value |
 | `quidclaw get-config [KEY]` | Get configuration values (`--json`) |
 | `quidclaw setup` | Create default accounts using configured operating currency |
 
-## Ledger Operations (8)
+## Ledger Operations (12)
 
 | Command | Purpose |
 |---------|---------|
-| `quidclaw add-account NAME` | Open a new account (`--currencies`, `--date`) |
+| `quidclaw add-account NAME` | Open a new account (`--currencies`, `--date`, `--meta` for institution/account-number) |
 | `quidclaw close-account NAME` | Close an account (`--date`) |
 | `quidclaw list-accounts` | List all accounts (`--type` to filter, `--json`) |
-| `quidclaw add-txn` | Record a transaction (`--date`, `--payee`, `--posting`; use `--meta` for source traceability) |
+| `quidclaw add-note ACCOUNT "text"` | Add a Beancount note to an account (`--date`) |
+| `quidclaw add-txn` | Record a transaction (`--date`, `--payee`, `--posting`, `--flag`, `--tag`, `--link`, `--meta`) |
+| `quidclaw add-document ACCOUNT PATH` | Link a document to an account (`--date`) |
+| `quidclaw add-pad ACCOUNT` | Auto-fill balance gap to next assertion (`--source`, `--date`) |
+| `quidclaw add-balance ACCOUNT` | Write a balance assertion to the ledger (`--amount`, `--currency`, `--date`) |
 | `quidclaw balance` | Query account balances (`--account` to filter, `--json`) |
-| `quidclaw balance-check ACCOUNT EXPECTED` | Reconciliation: assert an account balance (`--currency`) |
+| `quidclaw balance-check ACCOUNT EXPECTED` | Reconciliation check — read-only (`--currency`) |
 | `quidclaw query BQL` | Execute a BQL query (`--json`) |
 | `quidclaw report income\|balance_sheet` | Generate a financial report (`--period`) |
 

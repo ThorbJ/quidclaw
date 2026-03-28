@@ -29,8 +29,12 @@ class AccountManager:
         name: str,
         currencies: list[str] | None = None,
         open_date: datetime.date | None = None,
+        metadata: dict | None = None,
     ) -> None:
-        """Add an Open directive to accounts.bean."""
+        """Add an Open directive to accounts.bean.
+
+        metadata: optional dict of key/value pairs (e.g. institution, account-number).
+        """
         self.validate_account_name(name)
         date = open_date or datetime.date.today()
         currency_str = ",".join(currencies) if currencies else ""
@@ -38,6 +42,9 @@ class AccountManager:
         if currency_str:
             line += f' {currency_str}'
         line += "\n"
+        if metadata:
+            for key, value in metadata.items():
+                line += f'  {key}: "{value}"\n'
         self.ledger.append(self.ledger.config.accounts_bean, line)
 
     def close_account(
@@ -50,6 +57,20 @@ class AccountManager:
         date = close_date or datetime.date.today()
         line = f"{date} close {name}\n"
         self.ledger.append(self.ledger.config.accounts_bean, line)
+
+    def add_note(
+        self,
+        account: str,
+        note: str,
+        date: datetime.date | None = None,
+    ) -> None:
+        """Write a Beancount note directive to the monthly file."""
+        self.validate_account_name(account)
+        date = date or datetime.date.today()
+        line = f'{date} note {account} "{note}"\n'
+        self.ledger.ensure_month_file(date.year, date.month)
+        month_file = self.ledger.config.month_bean(date.year, date.month)
+        self.ledger.append(month_file, line)
 
     def list_accounts(self, account_type: str | None = None) -> list[str]:
         """List all open accounts, optionally filtered by type prefix."""

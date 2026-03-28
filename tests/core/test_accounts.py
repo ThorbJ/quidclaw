@@ -51,6 +51,36 @@ def test_list_accounts_by_type(tmp_path):
     assert "Expenses:Food" not in assets
 
 
+def test_add_account_with_metadata(tmp_path):
+    ledger = make_ledger(tmp_path)
+    mgr = AccountManager(ledger)
+    mgr.add_account(
+        "Assets:Bank:CMB:1234",
+        currencies=["CNY"],
+        open_date=datetime.date(2026, 1, 1),
+        metadata={"institution": "China Merchants Bank", "account-number": "6225-xxxx-xxxx-1234"},
+    )
+    content = ledger.config.accounts_bean.read_text()
+    assert 'institution: "China Merchants Bank"' in content
+    assert 'account-number: "6225-xxxx-xxxx-1234"' in content
+    entries, errors, _ = ledger.load()
+    assert len(errors) == 0
+
+
+def test_add_note(tmp_path):
+    ledger = make_ledger(tmp_path)
+    mgr = AccountManager(ledger)
+    mgr.add_account("Assets:Bank:BOC", open_date=datetime.date(2026, 1, 1))
+    mgr.add_note("Assets:Bank:BOC", "Called to confirm wire transfer", datetime.date(2026, 3, 15))
+    month_file = ledger.config.month_bean(2026, 3)
+    content = month_file.read_text()
+    assert '2026-03-15 note Assets:Bank:BOC "Called to confirm wire transfer"' in content
+    entries, errors, _ = ledger.load()
+    assert len(errors) == 0
+    note_entries = [e for e in entries if e.__class__.__name__ == "Note"]
+    assert len(note_entries) == 1
+
+
 def test_close_account(tmp_path):
     ledger = make_ledger(tmp_path)
     mgr = AccountManager(ledger)

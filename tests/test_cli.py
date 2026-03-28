@@ -25,38 +25,6 @@ def _env(tmp_path):
 
 
 class TestInit:
-    def test_init_with_platform_claude_code(self, tmp_path):
-        runner = CliRunner()
-        result = runner.invoke(
-            main, ["init", "--platform", "claude-code"],
-            catch_exceptions=False, env=_env(tmp_path),
-        )
-        assert result.exit_code == 0
-        assert (tmp_path / "CLAUDE.md").exists()
-        assert not (tmp_path / "GEMINI.md").exists()
-        assert not (tmp_path / "SOUL.md").exists()
-
-    def test_init_with_platform_gemini(self, tmp_path):
-        runner = CliRunner()
-        result = runner.invoke(
-            main, ["init", "--platform", "gemini"],
-            catch_exceptions=False, env=_env(tmp_path),
-        )
-        assert result.exit_code == 0
-        assert (tmp_path / "GEMINI.md").exists()
-        assert not (tmp_path / "CLAUDE.md").exists()
-
-    def test_init_with_platform_codex(self, tmp_path):
-        runner = CliRunner()
-        result = runner.invoke(
-            main, ["init", "--platform", "codex"],
-            catch_exceptions=False, env=_env(tmp_path),
-        )
-        assert result.exit_code == 0
-        assert (tmp_path / "AGENTS.md").exists()
-        assert not (tmp_path / "CLAUDE.md").exists()
-        assert not (tmp_path / "SOUL.md").exists()
-
     def test_init_with_platform_openclaw_generates_templates(self, tmp_path):
         runner = CliRunner()
         from unittest.mock import patch
@@ -72,6 +40,7 @@ class TestInit:
         assert (tmp_path / "IDENTITY.md").exists()
         assert (tmp_path / "AGENTS.md").exists()
         assert "Automation" in (tmp_path / "AGENTS.md").read_text()
+        assert (tmp_path / ".claude" / "skills" / "quidclaw" / "SKILL.md").exists()
         assert not (tmp_path / "CLAUDE.md").exists()
         assert not (tmp_path / "GEMINI.md").exists()
 
@@ -108,15 +77,6 @@ class TestInit:
         assert (tmp_path / "inbox").is_dir()
         assert (tmp_path / "notes" / "pending").is_dir()
 
-    def test_init_creates_workflows(self, tmp_path):
-        runner = CliRunner()
-        result = runner.invoke(
-            main, ["init", "--platform", "claude-code"],
-            catch_exceptions=False, env=_env(tmp_path),
-        )
-        assert result.exit_code == 0
-        assert (tmp_path / ".quidclaw" / "workflows" / "onboarding.md").exists()
-
     def test_init_idempotent(self, tmp_path):
         runner = CliRunner()
         env = _env(tmp_path)
@@ -126,37 +86,144 @@ class TestInit:
                                catch_exceptions=False, env=env)
         assert result.exit_code == 0
 
+    def test_init_installs_skills_claude_code(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["init", "--platform", "claude-code"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        skills_dir = tmp_path / ".claude" / "skills"
+        assert (skills_dir / "quidclaw" / "SKILL.md").exists()
+        assert (skills_dir / "quidclaw-onboarding" / "SKILL.md").exists()
+        assert (skills_dir / "quidclaw-import" / "SKILL.md").exists()
+        assert (skills_dir / "quidclaw-daily" / "SKILL.md").exists()
+        assert (skills_dir / "quidclaw-review" / "SKILL.md").exists()
+
+    def test_init_installs_skills_gemini(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["init", "--platform", "gemini"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        assert (tmp_path / ".gemini" / "skills" / "quidclaw" / "SKILL.md").exists()
+
+    def test_init_installs_skills_codex(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["init", "--platform", "codex"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        assert (tmp_path / ".agents" / "skills" / "quidclaw" / "SKILL.md").exists()
+
+    def test_init_skills_have_valid_frontmatter(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["init", "--platform", "claude-code"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        import yaml
+        skill_md = (tmp_path / ".claude" / "skills" / "quidclaw" / "SKILL.md").read_text()
+        parts = skill_md.split("---", 2)
+        assert len(parts) >= 3, "SKILL.md must have YAML frontmatter"
+        meta = yaml.safe_load(parts[1])
+        assert meta["name"] == "quidclaw"
+        assert "description" in meta
+
+    def test_init_skills_references_installed(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["init", "--platform", "claude-code"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        refs = tmp_path / ".claude" / "skills" / "quidclaw" / "references"
+        assert (refs / "cli-reference.md").exists()
+        assert (refs / "conventions.md").exists()
+        assert (refs / "notes-guide.md").exists()
+
+    def test_init_generates_claude_md(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["init", "--platform", "claude-code"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        claude_md = tmp_path / "CLAUDE.md"
+        assert claude_md.exists()
+        content = claude_md.read_text()
+        assert "Personal CFO" in content
+        assert "Skills" in content
+        assert "quidclaw-import" in content
+        # NOT the old huge file — should be concise
+        assert len(content) < 1000
+
+    def test_init_generates_gemini_md(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["init", "--platform", "gemini"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        assert (tmp_path / "GEMINI.md").exists()
+        assert "Skills" in (tmp_path / "GEMINI.md").read_text()
+
+    def test_init_generates_agents_md_for_codex(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["init", "--platform", "codex"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        assert (tmp_path / "AGENTS.md").exists()
+        assert "Skills" in (tmp_path / "AGENTS.md").read_text()
+
 
 # --- Upgrade ---
 
 
 class TestUpgrade:
-    def test_upgrade_updates_workflows(self, tmp_path):
-        runner = _init_project(tmp_path)
-        workflows_dir = tmp_path / ".quidclaw" / "workflows"
-        assert workflows_dir.is_dir()
-        assert (workflows_dir / "onboarding.md").exists()
-        (workflows_dir / "onboarding.md").write_text("old content")
-        result = runner.invoke(
-            main, ["upgrade"], catch_exceptions=False,
-            env=_env(tmp_path),
-        )
-        assert result.exit_code == 0
-        content = (workflows_dir / "onboarding.md").read_text()
-        assert content != "old content"
-
     def test_upgrade_updates_instruction_files(self, tmp_path):
-        """upgrade refreshes instruction files for the stored platform."""
+        """upgrade refreshes both skills and platform entry file."""
         runner = _init_project(tmp_path)
-        (tmp_path / "CLAUDE.md").write_text("old")
+        claude_md = tmp_path / "CLAUDE.md"
+        claude_md.write_text("old")
         result = runner.invoke(
             main, ["upgrade"], catch_exceptions=False,
             env=_env(tmp_path),
         )
         assert result.exit_code == 0
-        content = (tmp_path / "CLAUDE.md").read_text()
+        content = claude_md.read_text()
         assert content != "old"
-        assert "QuidClaw" in content
+        assert "Personal CFO" in content
+
+    def test_upgrade_updates_skills(self, tmp_path):
+        runner = _init_project(tmp_path)
+        skill_file = tmp_path / ".claude" / "skills" / "quidclaw" / "SKILL.md"
+        assert skill_file.exists()
+        skill_file.write_text("old content")
+        result = runner.invoke(
+            main, ["upgrade"], catch_exceptions=False,
+            env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        assert skill_file.read_text() != "old content"
+
+    def test_upgrade_installs_new_skills(self, tmp_path):
+        runner = _init_project(tmp_path)
+        import shutil
+        daily_dir = tmp_path / ".claude" / "skills" / "quidclaw-daily"
+        if daily_dir.exists():
+            shutil.rmtree(daily_dir)
+        result = runner.invoke(
+            main, ["upgrade"], catch_exceptions=False,
+            env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        assert (daily_dir / "SKILL.md").exists()
 
 
 # --- Data Status ---
@@ -283,6 +350,31 @@ class TestAccounts:
         )
         assert result.exit_code == 0
 
+    def test_add_account_with_metadata(self, tmp_path):
+        runner = _init_project(tmp_path)
+        meta = json.dumps({"institution": "CMB", "account-number": "1234"})
+        result = runner.invoke(
+            main, ["add-account", "Assets:Bank:CMB:1234", "--currencies", "CNY", "--meta", meta],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        content = (tmp_path / "ledger" / "accounts.bean").read_text()
+        assert 'institution: "CMB"' in content
+
+    def test_add_note(self, tmp_path):
+        runner = _init_project(tmp_path)
+        runner.invoke(
+            main, ["add-account", "Assets:Bank:Test"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        result = runner.invoke(
+            main, ["add-note", "Assets:Bank:Test", "Called bank about transfer", "--date", "2026-03-15"],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        content = (tmp_path / "ledger" / "2026" / "2026-03.bean").read_text()
+        assert 'note Assets:Bank:Test "Called bank about transfer"' in content
+
 
 # --- Transactions ---
 
@@ -334,6 +426,50 @@ class TestTransactions:
         assert 'source: "test-source"' in content
         assert 'import-id: "evt_test"' in content
 
+    def test_add_transaction_with_flag(self, tmp_path):
+        runner = _init_project(tmp_path)
+        posting1 = json.dumps({"account": "Expenses:Food", "amount": "50", "currency": "CNY"})
+        posting2 = json.dumps({"account": "Assets:Bank:Checking"})
+        result = runner.invoke(
+            main, [
+                "add-txn",
+                "--date", "2026-03-15",
+                "--payee", "Unknown",
+                "--narration", "Unconfirmed",
+                "--posting", posting1,
+                "--posting", posting2,
+                "--flag", "!",
+            ],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        txn_file = tmp_path / "ledger" / "2026" / "2026-03.bean"
+        assert '! "Unknown"' in txn_file.read_text()
+
+    def test_add_transaction_with_tags_and_links(self, tmp_path):
+        runner = _init_project(tmp_path)
+        posting1 = json.dumps({"account": "Expenses:Food", "amount": "50", "currency": "CNY"})
+        posting2 = json.dumps({"account": "Assets:Bank:Checking"})
+        result = runner.invoke(
+            main, [
+                "add-txn",
+                "--date", "2026-03-15",
+                "--payee", "Restaurant",
+                "--narration", "Team dinner",
+                "--posting", posting1,
+                "--posting", posting2,
+                "--tag", "trip-beijing",
+                "--tag", "tax-2026",
+                "--link", "project-alpha",
+            ],
+            catch_exceptions=False, env=_env(tmp_path),
+        )
+        assert result.exit_code == 0
+        content = (tmp_path / "ledger" / "2026" / "2026-03.bean").read_text()
+        assert "#trip-beijing" in content
+        assert "#tax-2026" in content
+        assert "^project-alpha" in content
+
 
 # --- Balance ---
 
@@ -368,6 +504,61 @@ class TestBalance:
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert "Expenses:Food" in data
+
+    def test_add_balance_assertion(self, tmp_path):
+        runner = _init_project(tmp_path)
+        env = _env(tmp_path)
+        posting1 = json.dumps({"account": "Expenses:Food", "amount": "50", "currency": "CNY"})
+        posting2 = json.dumps({"account": "Assets:Bank:Checking", "amount": "-50", "currency": "CNY"})
+        runner.invoke(
+            main, [
+                "add-txn", "--date", "2026-03-15", "--payee", "Test",
+                "--posting", posting1, "--posting", posting2,
+            ],
+            catch_exceptions=False, env=env,
+        )
+        result = runner.invoke(
+            main, ["add-balance", "Assets:Bank:Checking", "--amount", "-50", "--currency", "CNY", "--date", "2026-03-16"],
+            catch_exceptions=False, env=env,
+        )
+        assert result.exit_code == 0
+        assert "Balance assertion" in result.output
+        content = (tmp_path / "ledger" / "2026" / "2026-03.bean").read_text()
+        assert "balance Assets:Bank:Checking" in content
+
+    def test_add_pad(self, tmp_path):
+        runner = _init_project(tmp_path)
+        env = _env(tmp_path)
+        runner.invoke(
+            main, ["add-account", "Equity:Opening-Balances"],
+            catch_exceptions=False, env=env,
+        )
+        result = runner.invoke(
+            main, ["add-pad", "Assets:Bank:Checking", "--date", "2026-03-01"],
+            catch_exceptions=False, env=env,
+        )
+        assert result.exit_code == 0
+        assert "Pad" in result.output
+        content = (tmp_path / "ledger" / "2026" / "2026-03.bean").read_text()
+        assert "pad Assets:Bank:Checking" in content
+        assert "Equity:Opening-Balances" in content
+
+    def test_add_document(self, tmp_path):
+        runner = _init_project(tmp_path)
+        env = _env(tmp_path)
+        result = runner.invoke(
+            main, [
+                "add-document", "Assets:Bank:Checking",
+                "documents/2026/03/BOC-Statement-2026-03.pdf",
+                "--date", "2026-03-15",
+            ],
+            catch_exceptions=False, env=env,
+        )
+        assert result.exit_code == 0
+        assert "Document linked" in result.output
+        content = (tmp_path / "ledger" / "2026" / "2026-03.bean").read_text()
+        assert "document Assets:Bank:Checking" in content
+        assert "BOC-Statement-2026-03.pdf" in content
 
 
 # --- Query ---

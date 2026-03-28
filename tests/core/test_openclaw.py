@@ -52,17 +52,25 @@ class TestGenerateAgentsMd:
         config = QuidClawConfig(data_dir=tmp_path)
         config.config_dir.mkdir(parents=True, exist_ok=True)
         setup = OpenClawSetup(config)
-        setup.generate_agents_md("# QuidClaw Instructions\nTest body.")
+        setup.generate_agents_md("# Entry\n")
         assert (tmp_path / "AGENTS.md").exists()
         content = (tmp_path / "AGENTS.md").read_text()
-        assert "QuidClaw" in content
+        assert content.startswith("# Entry")
         assert "Automation" in content
         assert "HEARTBEAT" in content
 
-    def test_agents_md_contains_instruction_body(self, tmp_path):
+    def test_agents_md_contains_automation_section(self, tmp_path):
         config = QuidClawConfig(data_dir=tmp_path)
         setup = OpenClawSetup(config)
-        setup.generate_agents_md("CUSTOM BODY CONTENT")
+        setup.generate_agents_md("# Entry\n")
         content = (tmp_path / "AGENTS.md").read_text()
-        assert "CUSTOM BODY CONTENT" in content
         assert "Pending Items" in content
+        assert "/quidclaw-daily" in content
+        assert "/quidclaw-review" in content
+
+    def test_agents_md_without_entry_content(self, tmp_path):
+        config = QuidClawConfig(data_dir=tmp_path)
+        setup = OpenClawSetup(config)
+        setup.generate_agents_md()
+        content = (tmp_path / "AGENTS.md").read_text()
+        assert "Automation" in content

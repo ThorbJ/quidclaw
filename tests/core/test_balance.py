@@ -77,3 +77,22 @@ def test_add_balance_assertion(tmp_path):
     assert len(errors) == 0
     balance_entries = [e for e in entries if e.__class__.__name__ == "Balance"]
     assert len(balance_entries) == 1
+
+
+def test_add_pad(tmp_path):
+    """pad + balance assertion auto-fills the gap."""
+    config = QuidClawConfig(data_dir=tmp_path / "testdata")
+    ledger = Ledger(config)
+    ledger.init()
+    acct = AccountManager(ledger)
+    acct.add_account("Assets:Bank:BOC", currencies=["CNY"], open_date=datetime.date(2026, 1, 1))
+    acct.add_account("Equity:Opening-Balances", open_date=datetime.date(2026, 1, 1))
+
+    bal = BalanceManager(ledger)
+    bal.add_pad("Assets:Bank:BOC", "Equity:Opening-Balances", datetime.date(2026, 1, 1))
+    bal.add_balance_assertion("Assets:Bank:BOC", Decimal("50000.00"), "CNY", datetime.date(2026, 1, 2))
+
+    entries, errors, _ = ledger.load()
+    assert len(errors) == 0
+    pad_entries = [e for e in entries if e.__class__.__name__ == "Pad"]
+    assert len(pad_entries) == 1

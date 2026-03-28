@@ -23,10 +23,13 @@ def run_claude(
     prompt: str,
     data_dir: Path,
     max_turns: int = 20,
-    timeout: int = 300,
+    timeout: int = 600,
 ) -> dict:
     """Run claude in print mode in the data directory (reads CLAUDE.md automatically)."""
-    env = {**os.environ, "QUIDCLAW_DATA_DIR": str(data_dir)}
+    # Strip ANTHROPIC_API_KEY so claude -p uses the subscription auth
+    # instead of burning API credits.
+    env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
+    env["QUIDCLAW_DATA_DIR"] = str(data_dir)
     full_prompt = f"{E2E_SYSTEM}\n\n{prompt}"
 
     result = subprocess.run(

@@ -44,6 +44,18 @@ class BalanceManager:
         diff = actual_amount - expected
         return False, f"{account}: expected {expected} {currency}, actual {actual_amount} {currency} (diff: {diff:+})"
 
+    def add_pad(
+        self,
+        account: str,
+        source_account: str,
+        date: datetime.date,
+    ) -> None:
+        """Write a pad directive to auto-fill the gap to the next balance assertion."""
+        line = f'{date} pad {account}  {source_account}\n'
+        self.ledger.ensure_month_file(date.year, date.month)
+        month_file = self.ledger.config.month_bean(date.year, date.month)
+        self.ledger.append(month_file, line)
+
     def add_balance_assertion(
         self, account: str, amount: Decimal, currency: str, date: datetime.date
     ) -> None:

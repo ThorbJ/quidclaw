@@ -5,7 +5,7 @@
 1. Add core logic in `src/quidclaw/core/<module>.py` with tests in `tests/core/`
 2. Add a Click command in `src/quidclaw/cli.py` under the appropriate section
 3. Add CLI test in `tests/test_cli.py`
-4. Add the command to `_build_instruction_body()` in `cli.py` so user-facing CLAUDE.md stays current
+4. Update the CLI reference in the skill (`src/quidclaw/skills/quidclaw/references/cli-reference.md`) and `docs/cli-reference.md`
 
 Pattern:
 ```python
@@ -24,12 +24,12 @@ def my_command(arg, as_json):
         click.echo(result)
 ```
 
-## How to Add a New Workflow
+## How to Add a New Skill
 
-1. Create `src/quidclaw/workflows/<name>.md` (bundled copy, shipped with package)
-2. Workflow instructions should use CLI commands (via Bash) for Beancount operations
+1. Create a new skill file in `src/quidclaw/skills/<name>.md`, or add a reference to an existing skill
+2. Skill instructions should use CLI commands (via Bash) for Beancount operations
 3. Use native AI tools (Read, Write, Glob, Grep) for file operations — never reference MCP tools
-4. Reference the new workflow in `_build_instruction_body()` in `cli.py` so users know it exists
+4. Register the skill in the installer so it is copied to platform directories at init/upgrade
 
 ## How to Add a New Data Source Provider
 
