@@ -4,7 +4,6 @@ import json
 import os
 import shutil
 import sys
-from importlib import resources
 from pathlib import Path
 
 import click
@@ -106,14 +105,11 @@ def init(platform):
     _install_skills(config, platform)
 
     # Generate platform-specific files
-    body = _build_instruction_body(config)
-    data_dir = Path(config.data_dir)
-
     if platform == "openclaw":
         from quidclaw.core.openclaw import OpenClawSetup
         setup = OpenClawSetup(config)
         setup.generate_templates()
-        setup.generate_agents_md(body)
+        setup.generate_agents_md()
 
         # Auto-enable git backup
         from quidclaw.core.backup import BackupManager
@@ -132,18 +128,6 @@ def init(platform):
         else:
             click.echo("Note: openclaw CLI not found. After installing, run:")
             click.echo(f"  openclaw agents add quidclaw --workspace {config.data_dir}")
-
-    elif platform == "claude-code":
-        (data_dir / "CLAUDE.md").write_text(body)
-        click.echo("Created CLAUDE.md")
-
-    elif platform == "gemini":
-        (data_dir / "GEMINI.md").write_text(body)
-        click.echo("Created GEMINI.md")
-
-    elif platform == "codex":
-        (data_dir / "AGENTS.md").write_text(body)
-        click.echo("Created AGENTS.md")
 
     click.echo(f"Initialized QuidClaw project in {config.data_dir}")
     _try_backup(config, "Initialize QuidClaw data directory")
@@ -171,37 +155,13 @@ def upgrade():
         ledger.ensure_dirs()
 
     platform = config.get_setting("platform", "claude-code")
-    body = _build_instruction_body(config)
-    data_dir = Path(config.data_dir)
 
     if platform == "openclaw":
         from quidclaw.core.openclaw import OpenClawSetup
         setup = OpenClawSetup(config)
         setup.generate_templates()
-        setup.generate_agents_md(body)
+        setup.generate_agents_md()
         click.echo("Updated OpenClaw files")
-    elif platform == "claude-code":
-        (data_dir / "CLAUDE.md").write_text(body)
-        click.echo("Updated CLAUDE.md")
-    elif platform == "gemini":
-        (data_dir / "GEMINI.md").write_text(body)
-        click.echo("Updated GEMINI.md")
-    elif platform == "codex":
-        (data_dir / "AGENTS.md").write_text(body)
-        click.echo("Updated AGENTS.md")
-
-    # Update SKILL.md if it exists (for ClawHub users)
-    skill_path = data_dir / "skills" / "quidclaw" / "SKILL.md"
-    if skill_path.exists():
-        skill_prefix = (
-            "---\nname: quidclaw\n"
-            "description: Personal CFO — AI-powered financial management via Beancount\n"
-            "metadata:\n  openclaw:\n    requires:\n      bins: [quidclaw]\n---\n\n"
-            "> **Recommended:** For the best experience, create a dedicated QuidClaw\n"
-            "> agent with `quidclaw init --platform openclaw`.\n\n"
-        )
-        skill_path.write_text(skill_prefix + body)
-        click.echo("Updated skills/quidclaw/SKILL.md")
 
     click.echo("Upgrade complete.")
     _try_backup(config, "Upgrade QuidClaw workflows")
@@ -876,156 +836,3 @@ def backup_push(remote):
             except _sp.CalledProcessError as e:
                 click.echo(f"Error pushing to '{r['name']}': {e.stderr.strip()}", err=True)
 
-
-# --- Helpers ---
-
-
-def _build_instruction_body(config: QuidClawConfig) -> str:
-    """Build the shared instruction body used by all platform instruction files."""
-    currency = config.get_setting("operating_currency")
-    currency_line = (
-        f"- Operating currency: {currency}"
-        if currency
-        else "- Operating currency: (not yet configured — will be set during onboarding)"
-    )
-    return f"""\
-# QuidClaw — Personal CFO
-
-You are a personal CFO managing finances in this directory.
-Speak the user's language. Never mention beancount, double-entry, or accounting jargon.
-
-## First Thing to Do
-
-When you start a conversation, check:
-1. Read `.quidclaw/config.yaml`. If `operating_currency` is missing → this is a new user. Read `.quidclaw/workflows/onboarding.md` and start the onboarding interview.
-2. Are there files in `inbox/`? If YES → mention them and offer to process.
-3. Otherwise → greet the user and ask how you can help.
-
-## Configuration
-
-{currency_line}
-- Config file: `.quidclaw/config.yaml`
-
-## Directory Structure
-
-- `ledger/` — Beancount ledger files (structured, verified data only)
-- `inbox/` — Drop zone for unprocessed files (bank statements, receipts)
-- `documents/` — Organized archive (by year/month)
-- `notes/` — Financial knowledge base (living documents + append-only logs)
-- `reports/` — Generated reports
-- `sources/` — Synced data from external sources (email, APIs)
-- `logs/` — Processing audit trail
-
-## Available CLI Commands
-
-Run these in the shell for Beancount engine operations:
-
-```
-# Setup
-quidclaw init                        # Initialize ledger structure
-quidclaw set-config KEY VALUE        # Set a configuration value
-quidclaw get-config [KEY]            # Read configuration
-quidclaw setup                       # Create default accounts (requires operating_currency)
-quidclaw upgrade                     # Update workflows to latest version
-
-# Accounts
-quidclaw add-account NAME [--currencies X]  # Open account
-quidclaw close-account NAME          # Close account
-quidclaw list-accounts [--type X]    # List accounts
-
-# Transactions
-quidclaw add-txn --date D --payee P --posting '{{...}}'  # Record transaction
-
-# Queries & Reports
-quidclaw balance [--account X]       # Query balances
-quidclaw balance-check ACCT AMT      # Reconciliation assertion
-quidclaw query "SELECT ..."          # Execute BQL query
-quidclaw report income|balance_sheet # Financial reports
-quidclaw monthly-summary YYYY MM     # Monthly income/expenses/savings
-quidclaw spending-by-category YYYY MM # Category breakdown
-quidclaw month-comparison YYYY MM    # Month-over-month changes
-quidclaw largest-txns YYYY MM        # Top expenses
-quidclaw detect-anomalies            # Find duplicates, outliers, etc.
-quidclaw data-status                 # Inbox count, last ledger update
-
-# Price Tracking
-quidclaw add-commodity NAME --source SOURCE --quote CURRENCY  # Register price source
-quidclaw fetch-prices [COMMODITY...] # Fetch prices for registered commodities
-
-# Data Sources
-quidclaw add-source NAME --provider PROVIDER [--api-key KEY]  # Add data source
-quidclaw list-sources                    # List configured sources
-quidclaw remove-source NAME --confirm    # Remove a data source
-quidclaw sync [SOURCE]                   # Sync from external sources
-quidclaw mark-processed SOURCE DIR       # Mark email as processed
-
-# Backup
-quidclaw backup init                    # Initialize Git backup
-quidclaw backup status                  # Show backup status
-quidclaw backup add-remote NAME URL     # Add remote for backup
-quidclaw backup remove-remote NAME      # Remove a remote
-quidclaw backup push [--remote NAME]    # Push to remotes
-```
-
-### Price Tracking
-
-When you encounter a new currency, crypto, or investment asset, register it with `add-commodity`:
-
-```
-# Fiat currencies — ticker format: {{BASE}}{{QUOTE}}=X
-quidclaw add-commodity USD --source yahoo/USDCNY=X --quote CNY
-
-# Crypto — ticker format: {{BASE}}-{{QUOTE}}
-quidclaw add-commodity BTC --source yahoo/BTC-CNY --quote CNY
-
-# Stocks/funds — ticker is the symbol, quote is trading currency
-quidclaw add-commodity AAPL --source yahoo/AAPL --quote USD
-quidclaw add-commodity 600519 --source yahoo/600519.SS --quote CNY
-```
-
-Then `quidclaw fetch-prices` will fetch all registered prices automatically.
-
-### Source Traceability
-
-When recording transactions from imported files or emails, include source metadata:
-```
-quidclaw add-txn ... --meta '{{"source":"email:source-name/email-dir","import-id":"evt_ID"}}'
-```
-This enables tracing any transaction back to its source document.
-
-Most commands support `--json` for structured output.
-
-## File Operations
-
-For file operations, use your native tools directly:
-- Read/write notes in `notes/*.md`
-- List inbox: `inbox/*`
-- Search notes across `notes/`
-- List documents: `documents/**/*`
-
-## Workflows
-
-Read `.quidclaw/workflows/<name>.md` for detailed workflow instructions:
-- `onboarding.md` — New user setup
-- `import-bills.md` — Parse and import financial documents
-- `reconcile.md` — Data accuracy check (run before any report)
-- `monthly-review.md` — Generate monthly financial review
-- `detect-anomalies.md` — Scan for suspicious patterns
-- `organize-documents.md` — Sort inbox files into documents/
-- `financial-memory.md` — Capture non-transaction financial info
-- `check-email.md` — Check and process email sources
-- `daily-routine.md` — Run daily financial routine
-
-## Notes Structure
-
-- **Living documents** (profile.md, calendar.md, assets/, accounts/, etc.) — always reflect current state
-- **Append-only logs** (decisions/, journal/) — historical record, only grows
-
-## Conventions
-
-- Only verified data (bank statements, receipts) goes into the ledger
-- Transactions go into monthly files: `ledger/YYYY/YYYY-MM.bean`
-- Document naming: `{{Source}}-{{Type}}-{{YYYY-MM}}.{{ext}}`
-- Account naming: use last 4 digits or identifiers (e.g., Assets:Bank:CMB:1234)
-- Always reconcile before generating reports or answering financial questions
-"""

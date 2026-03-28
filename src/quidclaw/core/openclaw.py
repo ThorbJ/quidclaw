@@ -19,12 +19,12 @@ You have cron jobs and heartbeat configured. Follow these rules:
 - For urgent items (large unusual charges, overdue payments), alert immediately
 
 ### Daily Routine (Cron)
-- Follow `.quidclaw/workflows/daily-routine.md`
+- Run /quidclaw-daily
 - Output format: concise, emoji-marked, under 500 characters
 - If nothing to report: "一切正常 ✅"
 
 ### Monthly Review (Cron)
-- Follow `.quidclaw/workflows/monthly-review.md`
+- Run /quidclaw-review
 - Deliver as a structured summary to the user
 
 ### Pending Items
@@ -60,14 +60,9 @@ class OpenClawSetup:
             if src.exists():
                 dst.write_text(src.read_text())
 
-    def generate_agents_md(self, instruction_body: str) -> None:
-        """Generate AGENTS.md with OpenClaw automation section appended.
-
-        instruction_body is required — caller (CLI) builds it via _build_instruction_body().
-        This avoids circular imports (core must not import from cli).
-        """
-        content = instruction_body + _AGENTS_AUTOMATION_SECTION
-        (self.data_dir / "AGENTS.md").write_text(content)
+    def generate_agents_md(self) -> None:
+        """Generate AGENTS.md with OpenClaw automation section."""
+        (self.data_dir / "AGENTS.md").write_text(_AGENTS_AUTOMATION_SECTION)
 
     def create_agent(self) -> bool:
         """Create OpenClaw agent. Returns True if successful."""

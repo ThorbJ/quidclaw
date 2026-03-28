@@ -25,38 +25,6 @@ def _env(tmp_path):
 
 
 class TestInit:
-    def test_init_with_platform_claude_code(self, tmp_path):
-        runner = CliRunner()
-        result = runner.invoke(
-            main, ["init", "--platform", "claude-code"],
-            catch_exceptions=False, env=_env(tmp_path),
-        )
-        assert result.exit_code == 0
-        assert (tmp_path / "CLAUDE.md").exists()
-        assert not (tmp_path / "GEMINI.md").exists()
-        assert not (tmp_path / "SOUL.md").exists()
-
-    def test_init_with_platform_gemini(self, tmp_path):
-        runner = CliRunner()
-        result = runner.invoke(
-            main, ["init", "--platform", "gemini"],
-            catch_exceptions=False, env=_env(tmp_path),
-        )
-        assert result.exit_code == 0
-        assert (tmp_path / "GEMINI.md").exists()
-        assert not (tmp_path / "CLAUDE.md").exists()
-
-    def test_init_with_platform_codex(self, tmp_path):
-        runner = CliRunner()
-        result = runner.invoke(
-            main, ["init", "--platform", "codex"],
-            catch_exceptions=False, env=_env(tmp_path),
-        )
-        assert result.exit_code == 0
-        assert (tmp_path / "AGENTS.md").exists()
-        assert not (tmp_path / "CLAUDE.md").exists()
-        assert not (tmp_path / "SOUL.md").exists()
-
     def test_init_with_platform_openclaw_generates_templates(self, tmp_path):
         runner = CliRunner()
         from unittest.mock import patch
@@ -72,6 +40,7 @@ class TestInit:
         assert (tmp_path / "IDENTITY.md").exists()
         assert (tmp_path / "AGENTS.md").exists()
         assert "Automation" in (tmp_path / "AGENTS.md").read_text()
+        assert (tmp_path / ".claude" / "skills" / "quidclaw" / "SKILL.md").exists()
         assert not (tmp_path / "CLAUDE.md").exists()
         assert not (tmp_path / "GEMINI.md").exists()
 
@@ -205,17 +174,17 @@ class TestUpgrade:
         assert content != "old content"
 
     def test_upgrade_updates_instruction_files(self, tmp_path):
-        """upgrade refreshes instruction files for the stored platform."""
+        """upgrade refreshes skills for the stored platform."""
         runner = _init_project(tmp_path)
-        (tmp_path / "CLAUDE.md").write_text("old")
+        skill = tmp_path / ".claude" / "skills" / "quidclaw" / "SKILL.md"
+        skill.write_text("old")
         result = runner.invoke(
             main, ["upgrade"], catch_exceptions=False,
             env=_env(tmp_path),
         )
         assert result.exit_code == 0
-        content = (tmp_path / "CLAUDE.md").read_text()
-        assert content != "old"
-        assert "QuidClaw" in content
+        assert skill.read_text() != "old"
+        assert "quidclaw" in skill.read_text()
 
     def test_upgrade_updates_skills(self, tmp_path):
         runner = _init_project(tmp_path)
