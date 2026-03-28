@@ -11,6 +11,12 @@ import click
 from quidclaw.config import QuidClawConfig
 from quidclaw.core.ledger import Ledger
 
+# Register built-in providers
+try:
+    import quidclaw.core.sources.agentmail  # noqa: F401
+except ImportError:
+    pass
+
 
 def get_config() -> QuidClawConfig:
     """Get config from current directory or QUIDCLAW_DATA_DIR."""
@@ -643,10 +649,6 @@ def add_commodity(name, source, quote, open_date):
 @click.option("--display-name", default=None, help="Display name for the inbox")
 def add_source(name, provider, api_key, inbox_id, username, display_name):
     """Add a new data source."""
-    try:
-        import quidclaw.core.sources.agentmail  # noqa: F401 — registers provider
-    except ImportError:
-        pass
     from quidclaw.core.sources.registry import create_source
     config = get_config()
     source_config = {"provider": provider, "enabled": True}
@@ -723,10 +725,6 @@ def remove_source(name, confirm):
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 def sync(source_name, as_json):
     """Sync data from external sources."""
-    try:
-        import quidclaw.core.sources.agentmail  # noqa: F401 — registers provider
-    except ImportError:
-        pass
     from quidclaw.core.sources.registry import create_source
     config = get_config()
     sources = config.get_sources()
@@ -947,4 +945,11 @@ def backup_push(remote):
                 click.echo(f"Pushed to '{r['name']}'.")
             except _sp.CalledProcessError as e:
                 click.echo(f"Error pushing to '{r['name']}': {e.stderr.strip()}", err=True)
+
+
+
+# --- Plugin Loading ---
+
+from quidclaw.core.plugins import load_plugins
+load_plugins(main)
 
